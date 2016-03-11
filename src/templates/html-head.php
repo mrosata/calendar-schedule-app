@@ -28,3 +28,5 @@
 
 <script src="js/vendor/eonasdan-bootstrap-datetimepicker/js/bootstrap-datetimepicker.min.js"></script>
 <script src="js/vendor/bootstrap-timepicker/bootstrap-timepicker.js"></script>
+
+<script src="js/main.js"></script>

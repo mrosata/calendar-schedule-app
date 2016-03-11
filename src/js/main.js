@@ -11,18 +11,18 @@ jQuery(function ($) {
   },
     $datetimepicker1 = $('#start-date-dt').datetimepicker({format: 'YYYY-MM-DD HH:mm'}),
     $datetimepicker2 = $('#day-2').datetimepicker({format: 'YYYY-MM-DD HH:mm'}),
-    $datetimepicker3 = $('#day-3').datetimepicker({format: 'YYYY-MM-DD HH:mm'});
+    $datetimepicker3 = $('#day-3').datetimepicker({format: 'YYYY-MM-DD HH:mm'}),
+    timepickerOpts = {sideBySide: true, showMeridian: false, defaultTime: '8:00'};
 
   if ($datetimepicker1.length) {
-    $datetimepicker1.datetimepicker('options', {sideBySide: true});
-    $datetimepicker2.datetimepicker('options', {sideBySide: true});
-    $datetimepicker3.datetimepicker('options', {sideBySide: true});
+    $datetimepicker1.datetimepicker('options', timepickerOpts);
+    $datetimepicker2.datetimepicker('options', timepickerOpts);
+    $datetimepicker3.datetimepicker('options', timepickerOpts);
   }
 
   // All the tooltips
   $('[data-toggle="tooltip"]').tooltip();
   $('[data-toggle="popover"]').popover();
-
 
   function setupAllTimePickers() {
     $('.break-timepicker').timepicker(timepickerSettings)
