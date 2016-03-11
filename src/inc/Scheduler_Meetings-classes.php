@@ -26,6 +26,7 @@ class Meeting {
 class Scheduler {
 
     private $time_lines = array();
+    private $run_dates = array();
     private $projects = array();
     private $next_free_time = 0;
     public $start_date;
@@ -45,8 +46,9 @@ class Scheduler {
     private $start_new_day;
     private $day = 1;
 
-    function __construct($investors, $projects, \ms365\Calendar_Meetings_API $api, $settings = array()) {
+    function __construct($investors, $projects, $run_dates, \ms365\Calendar_Meetings_API $api, $settings = array()) {
         $this->time_lines = $investors;
+        $this->run_dates = $this->sanitize_dates($run_dates);
         $this->pad_projects_gte_investors($projects);
 
         // Store all projects by id on $this->projects.
@@ -58,24 +60,31 @@ class Scheduler {
         // Extend the settings with any passed in.
         $this->settings['meeting_length'] = isset($settings['meeting_length']) && (int)$settings['meeting_length'] > 1 ? ((int)$settings['meeting_length'] * 60) : \Setting\SECONDS_PER_MEETING;
         $this->settings['hours'] = isset($settings['hours']) && (int)$settings['hours'] >= 1 ? (int)$settings['hours'] : 8;
-        $this->settings['start_datetime'] = isset($settings['start_datetime']) ? $settings['start_datetime'] : \Setting\START_DATE . ' ' . \Setting\START_TIME;
+        //$this->settings['start_datetime'] = isset($settings['start_datetime']) ? $settings['start_datetime'] : \Setting\START_DATE . ' ' . \Setting\START_TIME;
+        $this->settings['start_datetime'] = date('Y-m-d H:i', $this->run_dates[0]);
         $this->settings['breaks'] = isset($settings['breaks']) && is_array($settings['breaks']) ? $settings['breaks'] : unserialize( \Setting\BREAKS );
         $this->settings['cal_id'] = isset($settings['cal_id']) ? $settings['cal_id'] : '';
 
         $this->api = $api;
         // Some dummy times.
-        $this->start_datetime = date('Y-m-d H:i:00', strtotime($this->settings['start_datetime']));
+        $this->start_datetime = date('Y-m-d H:i:00', $this->run_dates[0]);
         $this->reset_values();
     }
 
 
+    private function sanitize_dates($date_array) {
+        if (!is_array($date_array) || !isset($date_array[0])) {
+            $date_array = array( strtotime( $this->settings['start_datetime'] ) );
+        }
+        return $date_array;
+    }
+
     private function reset_values() {
 
         // RESET THE TIME SLOTS
-        $this->current_time = strtotime($this->settings['start_datetime']);
+        $this->current_time = $this->started_day_at = (int)($this->run_dates[0]);
 
-        $this->current_date = date( 'Y-m-d', strtotime($this->settings['start_datetime']) );
-        $this->started_day_at = strtotime($this->start_datetime);
+        $this->current_date = date( 'Y-m-d', $this->current_time );
 
         // The latest_time_possible is starting time - meeting length + day_length (because meeting can't start after end of day - meeting len).
         $this->latest_time_possible = strtotime("+{$this->settings['hours']} hour", $this->started_day_at);
@@ -85,9 +94,26 @@ class Scheduler {
     }
 
 
+    /**
+     * Utility to add another day to $this->run_dates;
+     * It's used if the events exceed the days in array it will just stack another
+     * on top. (This could happen before projects are filtered completely)
+     */
+    private function add_extra_day() {
+        $index = max(count($this->run_dates) - 1, 0);
+        $this->run_dates[] = strtotime('+1 day', $this->run_dates[$index]);
+    }
+
     private function goto_next_day () {
         $this->start_new_day = true;
-        $this->started_day_at = strtotime( "+{$this->day} day", strtotime($this->start_datetime) );
+        //$this->started_day_at = strtotime( "+{$this->day} day", strtotime($this->start_datetime) );
+        if (!isset($this->run_dates[$this->day])) {
+            // Add another day to run_dates because we used the ones we have already.
+            $this->add_extra_day();
+        }
+        $this->started_day_at = $this->run_dates[$this->day];
+
+        $this->started_day_at = $this->run_dates[$this->day];
         $this->current_time = $this->started_day_at;
         $this->current_date = date( 'Y-m-d', $this->started_day_at );
         $this->latest_time_possible = strtotime("+{$this->settings['hours']} hour", $this->started_day_at);

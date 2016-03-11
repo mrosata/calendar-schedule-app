@@ -39,5 +39,4 @@ function show_calendar($api) {
 
     //$table->close();
 
-
 }

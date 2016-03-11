@@ -13,9 +13,14 @@ require_once 'inc/ms365/oauth.php';
 
 $auth_code = $_GET['code'];
 echo "Authorization code:  {$auth_code}";
+if ($_SERVER['SERVER_NAME'] == '0.0.0.0') {
+    $redirectUri = 'http://localhost:'.$_SERVER['SERVER_PORT'].'/authorize.php';
+    $return_url = 'http://localhost:'.$_SERVER['SERVER_PORT'].'/index.php';
+} else {
+    $redirectUri = 'https://copro.ezadmin3.com/copro.co.il/originals/miker/dist/authorize.php';
+    $return_url = 'https://copro.ezadmin3.com/copro.co.il/originals/miker/dist/index.php';
+}
 $_SESSION['session_state'] = isset($_GET['session_state']) ? $_GET['session_state'] : '';
-//$redirectUri = 'https://copro.tqsoft.co.il/copro.co.il/originals/miker/dist/authorize.php';
-$redirectUri = 'https://copro.ezadmin3.com/copro.co.il/originals/miker/dist/authorize.php';
 
 $tokens = \ms365\oAuthService::getTokenFromAuthCode($auth_code, $redirectUri);
 
@@ -28,7 +33,7 @@ if (isset($tokens['access_token'])) {
     $_SESSION['user_email'] = $user_email;
 
     // ET go home
-    header( "Location: https://copro.ezadmin3.com/copro.co.il/originals/miker/dist/index.php" );
+    header( "Location: {$return_url}" );
 
 }
 else {

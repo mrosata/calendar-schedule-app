@@ -13,8 +13,12 @@ if (isset($_POST['unset-session-creds']) && !!$_POST['unset-session-creds']) {
 }
 $loggedIn = !is_null( \Util\session( 'access_token' ) ) && !is_null(\Util\session('user_email'));
 define( 'LOGGED_IN', $loggedIn );
-//$redirectUri = 'https://' . $_SERVER['HTTP_HOST'] . '/authorize.php';
-$redirectUri = "https://copro.ezadmin3.com/copro.co.il/originals/miker/dist/authorize.php";
+if ($_SERVER['SERVER_NAME'] == '0.0.0.0') {
+    $redirectUri = 'http://localhost:'.$_SERVER['SERVER_PORT'].'/authorize.php';
+    echo "<h4> Set to run on local server.. if you see this message then there is problem</h4>";
+} else {
+    $redirectUri = "https://copro.ezadmin3.com/copro.co.il/originals/miker/dist/authorize.php";
+}
 define( 'REDIRECT_URI', $redirectUri );
 define('CALENDAR_ID', "AAMkADM4M2ViNmI3LWJlOTctNGQ4NC04YzRjLTY4MWJjNTlkMTJkNgBGAAAAAADp8HeT-HBRQIiWquf6PwPgBwA9rC9RjovZQ5X8qGCTgVHWAAAAAAEGAAA9rC9RjovZQ5X8qGCTgVHWAAACZJkoAAA=");
 $calendar_name = \Util\get('calendar-name') ? \Util\get('calendar-name') : "CoPro Film Project Investor Meetings";
@@ -23,7 +27,7 @@ $calendar_name = \Util\get('calendar-name') ? \Util\get('calendar-name') : "CoPr
  */
 define( 'DEFAULT_CALENDAR_NAME', $calendar_name );
 define( 'SHOW_EMAIL_COLLISIONS', 1 );
-define( 'DEFAULT_START_DT', date( 'm/d/Y 08:00 \A\M', strtotime( '+ 1 day' ) ) );
+define( 'DEFAULT_START_DT', date( 'Y-m-d 08:00 \A\M', strtotime( '+ 1 day' ) ) );
 define( 'DEFAULT_DAILY_HOURS', 8 );
 define( 'DEFAULT_MEETING_MINS', 10 );
 define( 'MAX_DAILY_HOURS', 16 );

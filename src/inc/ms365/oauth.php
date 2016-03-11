@@ -5,7 +5,7 @@
 namespace ms365;
 
 define('RUNNING_IN_DEVELOPMENT', true);
-
+// $running_locally = $_SERVER[SERVER_NAME] == '0.0.0.0';
 if (RUNNING_IN_DEVELOPMENT) {
     define('MS365_CLIENT_ID', 'd938a8bc-5fdf-402c-a64a-bf74a1dbd3f9');
     define('MS365_CLIENT_SECRET', 'y4erat8ghOvCij80t1LftzT');

@@ -16,6 +16,8 @@ function build_schedule_controls_form() {
     $daily_hours = \Util\get('daily-hours') && (int)\Util\get('daily-hours') >= MIN_DAILY_HOURS && (int)\Util\get('daily-hours') <= MAX_DAILY_HOURS ? (int)\Util\get('daily-hours') : DEFAULT_DAILY_HOURS;
     $meeting_mins = \Util\get('meeting-length') && (int)\Util\get('meeting-length') >= MIN_MEETING_MINS && (int)\Util\get('meeting-length') <= MAX_MEETING_MINS ? (int)\Util\get('meeting-length') : DEFAULT_MEETING_MINS;
     $start_date_val = \Util\get('start-date-dt') ? \Util\get('start-date-dt') : DEFAULT_START_DT;
+    $date_day_2 = \Util\get('day-2') ? \Util\get('day-2') : '';
+    $date_day_3 = \Util\get('day-3') ? \Util\get('day-3') : '';
 
     $start_breaks = \Util\get('break-start') && is_array(\Util\get('break-start')) ? \Util\get('break-start') : unserialize(DEFAULT_BREAK_START);
     $end_breaks = \Util\get('break-end') && is_array(\Util\get('break-end')) ? \Util\get('break-end') : unserialize(DEFAULT_BREAK_END);
@@ -99,18 +101,43 @@ function build_schedule_controls_form() {
                                         </label>
                                     </div>
 
-                                    <div class="form-group">
-                                        <div class="form-group calendar-form-group">
-                                            <label for="start-date-dt">Pick a start date (This will be the first day and time for the 3 day event).</label>
-                                            <div class='input-group date' id='start-date-dt'>
-                                                <input type='text' class="form-control" name="start-date-dt" value="{$start_date_val}" />
-                                                <span class="input-group-addon">
-                                                    <span class="glyphicon glyphicon-calendar"></span>
-                                                </span>
+                                    <div class="row">
+                                        <div class="form-group col-md-6 col-lg-4">
+                                            <div class="form-group calendar-form-group">
+                                                <label for="start-date-dt" style="height:4rem;">Pick a start date (This will be the first day and time for the 3 day event).</label>
+                                                <div class='input-group date' id='start-date-dt'>
+                                                    <input type='text' class="form-control" name="start-date-dt" value="{$start_date_val}" />
+                                                    <span class="input-group-addon">
+                                                        <span class="glyphicon glyphicon-calendar"></span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group col-md-6 col-lg-4">
+                                            <div class="form-group calendar-form-group">
+                                                <label for="start-date-dt" style="height:4rem;">Day 2:</label>
+                                                <div class='input-group date' id='day-2'>
+                                                    <input type='text' class="form-control" name="day-2" value="{$date_day_2}" />
+                                                    <span class="input-group-addon">
+                                                        <span class="glyphicon glyphicon-calendar"></span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group col-md-6 col-lg-4">
+                                            <div class="form-group calendar-form-group">
+                                                <label for="start-date-dt" style="height:4rem;">Day 3:<br></label>
+                                                <div class='input-group date' id='day-3'>
+                                                    <input type='text' class="form-control" name="day-3" value="{$date_day_3}" />
+                                                    <span class="input-group-addon">
+                                                        <span class="glyphicon glyphicon-calendar"></span>
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-
                                     <div class="form-group">
                                         <label>Breaks</label>
 

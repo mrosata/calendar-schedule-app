@@ -4,15 +4,15 @@ if (!!\Util\get('export-calendar')) {
     // This resets each page load
     $_SESSION['export_calendar'] = 1;
 }
-
 if (!!\Util\get('section-id')) {
     // This resets each page load
     $_SESSION['section-id'] = 1;
 }
+
 $section_id = !!\Util\get('section-id') && (int)\Util\get('section-id') > 0 ? (int)\Util\get('section-id') : 0;
 define( 'QUERY_VALUE_SECTION_ID', $section_id);
 
-$mock_run = ( \Util\get( 'mock-run' ) && \Util\get( 'mock-run' ) ) ? 1 : 0;
+$mock_run = ( \Util\get( 'mock-run' ) && \Util\get( 'mock-run' ) ) || $_SERVER['SERVER_NAME'] == '0.0.0.0' ? 1 : 0;
 define( 'MOCK_RUN', $mock_run );
 $send_emails = ( \Util\get( 'attendees' ) && \Util\get( 'attendees' ) ) ? 1 : 0;
 define( 'SEND_EMAILS', $send_emails );
@@ -48,14 +48,14 @@ $calendar_id = \Util\get('calendar-id') && LOGGED_IN ? \Util\get('calendar-id') 
 
 
 define('SECONDS_PER_MEETING', 600);
-define('START_MONTH', '03');
-define('START_DAY', '01');
+define('START_MONTH', date('m', strtotime('+1 day')) );
+define('START_DAY', date('d', strtotime('+1 day')) );
 define('START_YEAR', date('Y'));
 define('START_TIME', '08:00');
 define('START_DATE', START_YEAR."-".START_MONTH."-".START_DAY);
 define('CONVENTION_LOCATION', "Copro Festival, IL");
 define('BREAKS', serialize(
-    array(
+    array(/*
         array(
             'start' => '09:15',
             'end' => '09:45',
@@ -63,7 +63,7 @@ define('BREAKS', serialize(
         array(
             'start' => '12:00',
             'end' => '13:00',
-        ),
+        ),*/
     )
 ));
 
@@ -103,6 +103,34 @@ if (defined('MOCK_RUN') && MOCK_RUN) {
     $mock->set_model($investor_model);
     $investors = $mock->generate_content($num_mock_investors);
 
+    $day = 1;
+
 } else {
 
 }
+
+
+/**  GET RUN DATES -- THIS MIGHT BE DATABASE SOON (in which case move this into MOCK_RUN block above **/
+
+$run_dates = array();
+$first_date = 0;
+while (($day++) < 3 || strtotime( \Util\get("day-{$day}") )) {
+    /**
+     * While we haven't filled all 3 days into array of dates in schedule
+     * or we haven't ran out of dates added in the URL params then push to array.
+     * This will allow for more than 4 days if needed but never less than 3
+     *
+     * $day == 1 on first loop-through.
+     */
+    if (!$first_date) {
+        $first_date = !!strtotime(\Util\get("start-date-dt")) ?
+            strtotime(\Util\get("start-date-dt")) :
+            strtotime(START_YEAR."-".START_MONTH."-".START_DAY." ".START_TIME);
+        $run_dates[] = $first_date;
+    }
+
+    $run_dates[] = !!strtotime(\Util\get("day-{$day}")) ?
+        strtotime(\Util\get("day-{$day}")) :
+        strtotime("+{$day} day", $first_date);
+}
+unset( $first_date );

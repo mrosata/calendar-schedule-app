@@ -10,6 +10,7 @@ require_once 'connection.php';
 require_once 'Project_Database_Interface-class.php';
 
 global $api;
+global $run_dates; // from crazy-settings
 global $projects;
 global $investors;
 global $all_investors;
@@ -71,7 +72,7 @@ if (! MOCK_RUN) {
 
 unset( $projects );
 unset( $investors );
-$shed = new Scheduler($all_investors, $all_projects, $api, unserialize(SCHEDULE_SETTINGS) );
+$shed = new Scheduler($all_investors, $all_projects, $run_dates,  $api, unserialize(SCHEDULE_SETTINGS) );
 
 // Delete all the calendars (this is more for testing).
 //$calendars_resp = $api->delete_all_calendars();
