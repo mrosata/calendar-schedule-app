@@ -7,6 +7,7 @@
 <head>
     <?php
     ini_set('display_errors', 1);
+    ini_set('output_buffering', 1);
     error_reporting(E_ALL);
     define('ROOT_DIR', __DIR__);
 
@@ -46,7 +47,7 @@
                         <li role="presentation"><a href="#step2" aria-controls="step 2" role="tab" data-toggle="tab">STEP 2: FILTER/MAP</a></li>
                         <li role="presentation"><a href="#step3" aria-controls="step 3" role="tab" data-toggle="tab">STEP 3: COMPRESS</a></li>
                         <li role="presentation"><a href="#collisions" aria-controls="step 3" role="tab" data-toggle="tab">AVOIDED COLLISIONS</a></li>
-                        <?php if (!!\Util\get('calendar-id')): // CALENDAR OUTLOOK CREATE REAL EVENTS !!! ?>
+                        <?php if (!!\Util\post('calendar-id')): // CALENDAR OUTLOOK CREATE REAL EVENTS !!! ?>
                             <li role="presentation"><a href="#outlook-events" aria-controls="Create Events" role="tab" data-toggle="tab">OUTLOOK EVENTS</a></li>
                         <?php endif ?>
 
@@ -103,6 +104,8 @@
                                 </p>
                             </div>
                             <br>
+
+
                             <?php
                             /**
                              *  Let's compress the mapped time_lines!
@@ -137,7 +140,7 @@
                             </div>
                         </div>
 
-                        <?php if (!!\Util\get('calendar-id') || !!\Util\get('export-calendar') == 'on'): // CALENDAR OUTLOOK CREATE REAL EVENTS !!! ?>
+                        <?php if (!!\Util\post('calendar-id') || !!\Util\post('export-calendar') == 'on'): // CALENDAR OUTLOOK CREATE REAL EVENTS !!! ?>
                         <div role="tabpanel" class="tab-pane fade" id="outlook-events">
                             <div class="row">
                                 <div class="col-sm-12">
@@ -156,10 +159,8 @@
                                 <div class="col-sm-12">
                                     <?php
                                     if (\Util\session('export_calendar')) {
-                                        echo "<h1>go time!</h1>";
                                         $create_all_resp = \copro\export_meetings_to_outlook();
 
-                                        \Util\print_pre($create_all_resp);
                                     }
                                     \Util\session('export_calendar', null);
                                     ?>
@@ -212,12 +213,7 @@
     </div>
 </footer>
 
-
-<script src="https://code.jquery.com/jquery-{{JQUERY_VERSION}}.min.js"></script>
-<script>window.jQuery || document.write('<script src="js/vendor/jquery-{{JQUERY_VERSION}}.min.js"><\/script>')</script>
 <script src="js/plugins.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/foundation/6.2.0/foundation.min.js"></script>
-<script src="js/main.js"></script>
 
 <!-- Google Analytics: change UA-XXXXX-X to be your site's ID. -->
 <script>

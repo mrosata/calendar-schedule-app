@@ -215,7 +215,9 @@ class Investor_Project_PHP_Handler extends Project_Database_Interface {
                 if (!is_a(($investor = $this->investors['index'][ (int) $investor_id ]), '\Investor')) {
                     throw new \ErrorException("Investor isn't instantiated! Can't reference project until Investor class is created.");
                 }
-                $investor->add_project( (int) $project->id );
+                if (! \RUNNING_PUSH_DATE || ! $this->investor_has_met_with_project($investor->id, $project->id)) {
+                    $investor->add_project( (int) $project->id );
+                }
             }
         }
 
@@ -263,4 +265,29 @@ class Investor_Project_PHP_Handler extends Project_Database_Interface {
         return null;
     }
 
+
+    /**
+     * Only call this on RUNNING_PUSH_DATE. It checks if the investor has already met
+     * with a project. So that it isn't rescheduled when the app creates new schedule.
+     *
+     * @param $investor_id
+     * @param $project_id
+     *
+     * @return bool
+     */
+    private function investor_has_met_with_project($investor_id, $project_id) {
+        global $push_date_investors;
+
+        if (!isset($push_date_investors) || !is_array($push_date_investors) || !is_array($push_date_investors[$investor_id])) {
+            return false;
+        }
+
+        foreach($push_date_investors[$investor_id] as $old_schedule) {
+            // Looping through the meetings which already happened or already started.
+            if ($old_schedule['P'] == $project_id) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

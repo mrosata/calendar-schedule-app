@@ -67,6 +67,7 @@ class OutlookService {
 
         $curl_errno = curl_errno($curl);
         $curl_err = curl_error($curl);
+        error_log(" --- Method Response: ". strtoupper($method));
         if ($curl_errno) {
             $msg = $curl_errno.": ".$curl_err;
             error_log("CURL returned an error: ".$msg);
@@ -75,7 +76,7 @@ class OutlookService {
                          'error' => $msg);
         }
         else {
-            error_log("Response: ".$response);
+            //error_log("Response: ".$response);
             curl_close($curl);
             return json_decode($response, true);
         }
@@ -86,10 +87,10 @@ class OutlookService {
     // This function convert a dateTime from local TZ to UTC, then
     // encodes it in the format expected by the Outlook APIs.
     public static function encodeDateTime($dateTime) {
-        $utcDateTime = $dateTime->setTimeZone(new \DateTimeZone("UTC"));
+        //$utcDateTime = $dateTime->setTimeZone(new \DateTimeZone("UTC"));
 
         $dateFormat = "Y-m-d\\TH:i:00";
-        return preg_replace('|\-(\d+)+$|', '.$1', date_format($utcDateTime, $dateFormat));
+        return preg_replace('|\-(\d+)+$|', '.$1', date_format($dateTime, $dateFormat));
     }
 
 
@@ -178,7 +179,7 @@ class OutlookService {
     public static function getEvents($access_token, $user_email, $calendar_id=null) {
         $getEventsParameters = array (
             // Only return Subject, Start, and End fields
-            "\$select" => "Subject,Organizer,Start,End",
+            "\$select" => "Subject,Body,Organizer,Start,End",
             // Sort by Start, oldest first
             "\$orderby" => "Start/DateTime",
             // Return at most 10 results
@@ -192,6 +193,24 @@ class OutlookService {
         return self::makeApiCall($access_token, $user_email, "GET", $getEventsUrl);
     }
 
+
+    public static function getView($access_token, $user_email, $calendar_id, $start_datetime, $end_datetime) {
+        $url = "";
+        $getEventsParameters = array (
+            // Only return Subject, Start, and End fields
+            "\$select" => "Subject,Body,Organizer,Start,End",
+            // Sort by Start, oldest first
+            "\$orderby" => "Start/DateTime",
+            // Return at most 10 results
+            "\$top" => "50"
+        );
+
+        $getEventsUrl = ! is_null( $calendar_id ) ?
+            self::$outlookApiUrl . "/me/calendarview?startDateTime={$start_datetime}&endDateTime={$end_datetime}?" . http_build_query( $getEventsParameters ) :
+            self::$outlookApiUrl . "/me/events?" . http_build_query( $getEventsParameters );
+
+        return self::makeApiCall($access_token, $user_email, "GET", $getEventsUrl);
+    }
 
 
     public static function createCalendar($access_token, $info, $return_failed_resp = 0) {
@@ -305,6 +324,7 @@ class OutlookService {
 
 
     public static function deleteEvent($access_token, $user_email, $event_id) {
+
         $deleteEventURI = self::$outlookApiUrl."/me/events/{$event_id}?";
 
         return self::makeApiCall($access_token, $user_email, "DELETE", $deleteEventURI);
@@ -324,13 +344,18 @@ class OutlookService {
         $calendar_app_id = null;
         // Generate the JSON payload
         $event = array(
-            "Body"    => array( "ContentType" => "HTML", "Content" => '' )
+            "Body"    => array( "ContentType" => "HTML", "Content" => 'Test?' )
         );
 
+        $TIMEZONE = date_default_timezone_get();
         foreach ($config as $setting => $value) {
             switch ( strtoupper( $setting ) ) {
                 case "SUBJECT":
                     $event['Subject'] = $value;
+                    break;
+
+                case "BODY":
+                    $event['Body'] = $value;
                     break;
 
                 case "CONTENT":
@@ -348,14 +373,14 @@ class OutlookService {
                 case "START":
                     $event["Start"] = array(
                         "DateTime" => self::encodeDateTime($value),
-                        "TimeZone" => "UTC"
+                        "TimeZone" => $TIMEZONE
                     );
                     break;
 
                 case "END":
                     $event["End"]     = array(
                         "DateTime" => self::encodeDateTime($value),
-                        "TimeZone" => "UTC"
+                        "TimeZone" => $TIMEZONE
                     );
                     break;
 

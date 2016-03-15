@@ -1,28 +1,75 @@
 jQuery(function ($) {
   var timepickerSettings = {
-    template: false,
-    showInputs: false,
-    maxHours: 24,
-    minuteStep: 5,
-    default: '12:00',
-    showSeconds: false,
-    showMeridian: false,
-    explicitMode: true
-  },
-    $datetimepicker1 = $('#start-date-dt').datetimepicker({format: 'YYYY-MM-DD HH:mm'}),
-    $datetimepicker2 = $('#day-2').datetimepicker({format: 'YYYY-MM-DD HH:mm'}),
-    $datetimepicker3 = $('#day-3').datetimepicker({format: 'YYYY-MM-DD HH:mm'}),
+      template: false,
+      showInputs: false,
+      maxHours: 24,
+      minuteStep: 5,
+      default: '12:00',
+      showSeconds: false,
+      showMeridian: false,
+      explicitMode: true
+    },
+    $datetimepickers = [],
     timepickerOpts = {sideBySide: true, showMeridian: false, defaultTime: '8:00'};
 
-  if ($datetimepicker1.length) {
-    $datetimepicker1.datetimepicker('options', timepickerOpts);
-    $datetimepicker2.datetimepicker('options', timepickerOpts);
-    $datetimepicker3.datetimepicker('options', timepickerOpts);
+  $datetimepickers._1 = $('#start-date-dt').datetimepicker({format: 'YYYY-MM-DD HH:mm'});
+  $datetimepickers._2 = $('#day-2').datetimepicker({format: 'YYYY-MM-DD HH:mm'});
+  $datetimepickers._3 = $('#day-3').datetimepicker({format: 'YYYY-MM-DD HH:mm'});
+  $datetimepickers.pushDate = $('#push-date').datetimepicker({format: 'YYYY-MM-DD HH:mm'});
+
+  if ($datetimepickers._1.length) {
+    $datetimepickers._1.datetimepicker('options', timepickerOpts);
+    $datetimepickers._2.datetimepicker('options', timepickerOpts);
+    $datetimepickers._3.datetimepicker('options', timepickerOpts);
+    $datetimepickers.pushDate.datetimepicker('options', timepickerOpts);
   }
 
   // All the tooltips
   $('[data-toggle="tooltip"]').tooltip();
   $('[data-toggle="popover"]').popover();
+
+
+
+
+  var $getDatesBtn = $('#get-dates-by-event');
+  $getDatesBtn.on('click', (evt) => {
+    let eventID = + ($('#dates-event-id').val());
+    $.ajax({
+      url: 'ajax.php',
+      type: 'post',
+      data: {
+        'event-id': eventID
+      },
+      dataType: 'json',
+      complete(resp) {
+        if (resp.hasOwnProperty('responseJSON') && typeof resp.responseJSON === "object" && !!resp.responseJSON.hasOwnProperty('data')) {
+          if (resp.responseJSON.success) {
+            let data = resp.responseJSON.data;
+            console.debug(data);
+            if (typeof data.dates === "object" && data.dates.constructor === Array) {
+              data.dates.forEach((dateTime, ind)=> {
+                if ($datetimepickers.hasOwnProperty(`_${ind}`)) {
+                  // Set the date onto the datetimepicker (using .data("DateTimePicker").FUNCTION() )
+                  $datetimepickers[`_${ind}`].data("DateTimePicker").date(dateTime);
+                }
+              });
+              if (typeof data.conflicts === "object") {
+                // Get the emails and their conflicts
+                $('input[name="conflicts"]').val(JSON.stringify(data.conflicts));
+              }
+            }
+          } else {
+            console.error('fail', resp.responseJSON);
+          }
+        }
+      }
+    });
+
+    evt.preventDefault();
+  });
+
+
+
 
   function setupAllTimePickers() {
     $('.break-timepicker').timepicker(timepickerSettings)
@@ -48,11 +95,14 @@ jQuery(function ($) {
       });
   }
 
+
   setupAllTimePickers();
   $('.add-new-break').on('click', function () {
     var $btn = $(this);
     var $newBreakInput = $btn.prev('.new-break-input-container');
     if ($btn.length && $newBreakInput.length) {
+
+
       if ($newBreakInput.hasClass('hidden')) {
         $newBreakInput.removeClass('hidden');
       } else {
@@ -61,4 +111,5 @@ jQuery(function ($) {
       setupAllTimePickers();
     }
   });
+
 });

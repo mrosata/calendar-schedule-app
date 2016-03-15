@@ -1,38 +1,37 @@
 <?php
 
-if (!!\Util\get('export-calendar')) {
-    // This resets each page load
-    $_SESSION['export_calendar'] = 1;
-}
-if (!!\Util\get('section-id')) {
+// This resets each page load
+$_SESSION['export_calendar'] = !!\Util\post('export-calendar') ? 1 : 0;
+
+if (!!\Util\post('section-id')) {
     // This resets each page load
     $_SESSION['section-id'] = 1;
 }
 
-$section_id = !!\Util\get('section-id') && (int)\Util\get('section-id') > 0 ? (int)\Util\get('section-id') : 0;
+$section_id = !!\Util\post('section-id') && (int)\Util\post('section-id') > 0 ? (int)\Util\post('section-id') : 0;
 define( 'QUERY_VALUE_SECTION_ID', $section_id);
 
-$mock_run = ( \Util\get( 'mock-run' ) && \Util\get( 'mock-run' ) ) || $_SERVER['SERVER_NAME'] == '0.0.0.0' ? 1 : 0;
+$mock_run = ( \Util\post( 'mock-run' ) && \Util\post( 'mock-run' ) ) || $_SERVER['SERVER_NAME'] == '0.0.0.0' ? 1 : 0;
 define( 'MOCK_RUN', $mock_run );
-$send_emails = ( \Util\get( 'attendees' ) && \Util\get( 'attendees' ) ) ? 1 : 0;
+$send_emails = ( \Util\post( 'attendees' ) && \Util\post( 'attendees' ) ) ? 1 : 0;
 define( 'SEND_EMAILS', $send_emails );
 
-$num_mock_investors = (\Util\get('mock-investors') && (int)$_GET['mock-investors'] > 0 && (int)$_GET['mock-investors'] <= 50) ? (int)$_GET['mock-investors'] : 7;
+$num_mock_investors = (\Util\post('mock-investors') && (int)$_GET['mock-investors'] > 0 && (int)$_GET['mock-investors'] <= 50) ? (int)$_GET['mock-investors'] : 7;
 define('NUM_MOCK_INVESTORS', $num_mock_investors);
-$num_mock_projects = (\Util\get('mock-projects') && (int)$_GET['mock-projects'] >= 10 && (int)$_GET['mock-projects'] <= 1000) ? (int)$_GET['mock-projects'] : 25;
+$num_mock_projects = (\Util\post('mock-projects') && (int)$_GET['mock-projects'] >= 2 && (int)$_GET['mock-projects'] <= 300) ? (int)$_GET['mock-projects'] : 15;
 define('NUM_MOCK_PROJECTS', $num_mock_projects);
-$email_pool_val = \Util\get('email-pool') && (int)\Util\get('email-pool') >= 10 && (int)\Util\get('email-pool') <= 1000 ? (int)\Util\get('email-pool') : 100;
+$email_pool_val = \Util\post('email-pool') && (int)\Util\post('email-pool') >= 10 && (int)\Util\post('email-pool') <= 1000 ? (int)\Util\post('email-pool') : 100;
 define('EMAIL_POOL_VAL', $email_pool_val);
-$daily_hours = \Util\get('daily-hours') && (int)\Util\get('daily-hours') >= MIN_DAILY_HOURS && (int)\Util\get('daily-hours') <= MAX_DAILY_HOURS ? (int)\Util\get('daily-hours') : DEFAULT_DAILY_HOURS;
+$daily_hours = \Util\post('daily-hours') && (int)\Util\post('daily-hours') >= MIN_DAILY_HOURS && (int)\Util\post('daily-hours') <= MAX_DAILY_HOURS ? (int)\Util\post('daily-hours') : DEFAULT_DAILY_HOURS;
 
 
-$meeting_mins = \Util\get('meeting-length') && (int)\Util\get('meeting-length') >= MIN_MEETING_MINS && (int)\Util\get('meeting-length') <= MAX_MEETING_MINS ? (int)\Util\get('meeting-length') : DEFAULT_MEETING_MINS;
+$meeting_mins = \Util\post('meeting-length') && (int)\Util\post('meeting-length') >= MIN_MEETING_MINS && (int)\Util\post('meeting-length') <= MAX_MEETING_MINS ? (int)\Util\post('meeting-length') : DEFAULT_MEETING_MINS;
 define('MEETING_MINS', $meeting_mins);
 
-$start_date_val = \Util\get('start-date-dt') ? \Util\get('start-date-dt') : DEFAULT_START_DT;
+$start_date_val = \Util\post('start-date-dt') ? \Util\post('start-date-dt') : DEFAULT_START_DT;
 
-$start_breaks = \Util\get('break-start') && is_array(\Util\get('break-start')) ? \Util\get('break-start') : unserialize(DEFAULT_BREAK_START);
-$end_breaks = \Util\get('break-end') && is_array(\Util\get('break-end')) ? \Util\get('break-end') : unserialize(DEFAULT_BREAK_END);
+$start_breaks = \Util\post('break-start') && is_array(\Util\post('break-start')) ? \Util\post('break-start') : unserialize(DEFAULT_BREAK_START);
+$end_breaks = \Util\post('break-end') && is_array(\Util\post('break-end')) ? \Util\post('break-end') : unserialize(DEFAULT_BREAK_END);
 $break_time_inputs = '';
 for ( $i = 0; $i < count( $start_breaks ) && $i < count( $end_breaks ); $i ++ ) {
     $break_time_inputs .= "<div class='form-group new-break-input-container'>"
@@ -42,7 +41,7 @@ for ( $i = 0; $i < count( $start_breaks ) && $i < count( $end_breaks ); $i ++ ) 
                           . "<input type='text' name='break-end[]' class='form-control break-timepicker' value='{$end_breaks[$i]}'></label></div>";
 }
 
-$calendar_id = \Util\get('calendar-id') && LOGGED_IN ? \Util\get('calendar-id') : '';
+$calendar_id = \Util\post('calendar-id') && LOGGED_IN ? \Util\post('calendar-id') : '';
 
 // This is settings for the scheduler
 
@@ -53,7 +52,7 @@ define('START_DAY', date('d', strtotime('+1 day')) );
 define('START_YEAR', date('Y'));
 define('START_TIME', '08:00');
 define('START_DATE', START_YEAR."-".START_MONTH."-".START_DAY);
-define('CONVENTION_LOCATION', "Copro Festival, IL");
+define('CONVENTION_LOCATION', "Boston, MA");
 define('BREAKS', serialize(
     array(/*
         array(
@@ -103,18 +102,15 @@ if (defined('MOCK_RUN') && MOCK_RUN) {
     $mock->set_model($investor_model);
     $investors = $mock->generate_content($num_mock_investors);
 
-    $day = 1;
-
-} else {
 
 }
-
+$day = 1;
 
 /**  GET RUN DATES -- THIS MIGHT BE DATABASE SOON (in which case move this into MOCK_RUN block above **/
 
 $run_dates = array();
 $first_date = 0;
-while (($day++) < 3 || strtotime( \Util\get("day-{$day}") )) {
+while (($day++) < 3 || strtotime( \Util\post("day-{$day}") )) {
     /**
      * While we haven't filled all 3 days into array of dates in schedule
      * or we haven't ran out of dates added in the URL params then push to array.
@@ -123,14 +119,21 @@ while (($day++) < 3 || strtotime( \Util\get("day-{$day}") )) {
      * $day == 1 on first loop-through.
      */
     if (!$first_date) {
-        $first_date = !!strtotime(\Util\get("start-date-dt")) ?
-            strtotime(\Util\get("start-date-dt")) :
+        $first_date = !!strtotime(\Util\post("start-date-dt")) ?
+            strtotime(\Util\post("start-date-dt")) :
             strtotime(START_YEAR."-".START_MONTH."-".START_DAY." ".START_TIME);
         $run_dates[] = $first_date;
     }
 
-    $run_dates[] = !!strtotime(\Util\get("day-{$day}")) ?
-        strtotime(\Util\get("day-{$day}")) :
+    $run_dates[] = !!strtotime(\Util\post("day-{$day}")) ?
+        strtotime(\Util\post("day-{$day}")) :
         strtotime("+{$day} day", $first_date);
 }
 unset( $first_date );
+
+
+// TODO: THIS IS THE SAME $push_date.. it's for test. The first should == default.
+$push_date = \Util\post('push-date');
+if (\Util\post('calendar-id'))
+    $push_date = \Util\post('push-date');
+define( 'RUNNING_PUSH_DATE', $push_date );

@@ -20,8 +20,7 @@ if ($_SERVER['SERVER_NAME'] == '0.0.0.0') {
     $redirectUri = "https://copro.ezadmin3.com/copro.co.il/originals/miker/dist/authorize.php";
 }
 define( 'REDIRECT_URI', $redirectUri );
-define('CALENDAR_ID', "AAMkADM4M2ViNmI3LWJlOTctNGQ4NC04YzRjLTY4MWJjNTlkMTJkNgBGAAAAAADp8HeT-HBRQIiWquf6PwPgBwA9rC9RjovZQ5X8qGCTgVHWAAAAAAEGAAA9rC9RjovZQ5X8qGCTgVHWAAACZJkoAAA=");
-$calendar_name = \Util\get('calendar-name') ? \Util\get('calendar-name') : "CoPro Film Project Investor Meetings";
+$calendar_name = \Util\post('calendar-name') ? \Util\post('calendar-name') : "CoPro Film Project Investor Meetings";
 /**
  * SETTINGS FOR THE FORM CONTROLS
  */
@@ -29,7 +28,7 @@ define( 'DEFAULT_CALENDAR_NAME', $calendar_name );
 define( 'SHOW_EMAIL_COLLISIONS', 1 );
 define( 'DEFAULT_START_DT', date( 'Y-m-d 08:00 \A\M', strtotime( '+ 1 day' ) ) );
 define( 'DEFAULT_DAILY_HOURS', 8 );
-define( 'DEFAULT_MEETING_MINS', 10 );
+define( 'DEFAULT_MEETING_MINS', 30 );
 define( 'MAX_DAILY_HOURS', 16 );
 define( 'MIN_MEETING_MINS', 5 );
 define( 'MAX_MEETING_MINS', 60 );
@@ -53,7 +52,6 @@ if (!LOGGED_IN) {
     exit();
 }
 $api = new \ms365\Calendar_Meetings_API();
-
 
 require_once 'connection.php';
 require_once 'markup-to-html-class.php';

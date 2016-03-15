@@ -7,20 +7,21 @@
 function build_schedule_controls_form() {
     $loggedIn = defined('LOGGED_IN') && LOGGED_IN;
 
-    $section_id_num = (\Util\get('section-id') && (int)$_GET['section-id'] > 0) ? (int)$_GET['section-id'] : 0;
+    $section_id_num = (\Util\post('section-id') && (int)$_GET['section-id'] > 0) ? (int)$_GET['section-id'] : 0;
 
-    $mock_run = (\Util\get('mock-run') && !!$_GET['mock-run']) ? 'checked="checked"' : '';
-    $num_mock_investors = (\Util\get('mock-investors') && (int)$_GET['mock-investors'] > 0 && (int)$_GET['mock-investors'] <= 50) ? (int)$_GET['mock-investors'] : 7;
-    $num_mock_projects = (\Util\get('mock-projects') && (int)$_GET['mock-projects'] >= 10 && (int)$_GET['mock-projects'] <= 1000) ? (int)$_GET['mock-projects'] : 3;
-    $email_pool_val = \Util\get('email-pool') && (int)\Util\get('email-pool') >= 10 && (int)\Util\get('email-pool') <= 1000 ? (int)\Util\get('email-pool') : 100;
-    $daily_hours = \Util\get('daily-hours') && (int)\Util\get('daily-hours') >= MIN_DAILY_HOURS && (int)\Util\get('daily-hours') <= MAX_DAILY_HOURS ? (int)\Util\get('daily-hours') : DEFAULT_DAILY_HOURS;
-    $meeting_mins = \Util\get('meeting-length') && (int)\Util\get('meeting-length') >= MIN_MEETING_MINS && (int)\Util\get('meeting-length') <= MAX_MEETING_MINS ? (int)\Util\get('meeting-length') : DEFAULT_MEETING_MINS;
-    $start_date_val = \Util\get('start-date-dt') ? \Util\get('start-date-dt') : DEFAULT_START_DT;
-    $date_day_2 = \Util\get('day-2') ? \Util\get('day-2') : '';
-    $date_day_3 = \Util\get('day-3') ? \Util\get('day-3') : '';
+    $mock_run = (\Util\post('mock-run') && !!$_GET['mock-run']) ? 'checked="checked"' : '';
+    $num_mock_investors = (\Util\post('mock-investors') && (int)$_GET['mock-investors'] > 0 && (int)$_GET['mock-investors'] <= 50) ? (int)$_GET['mock-investors'] : 7;
+    $num_mock_projects = (\Util\post('mock-projects') && (int)$_GET['mock-projects'] >= 2 && (int)$_GET['mock-projects'] <= 300) ? (int)$_GET['mock-projects'] : 15;
+    $email_pool_val = \Util\post('email-pool') && (int)\Util\post('email-pool') >= 10 && (int)\Util\post('email-pool') <= 1000 ? (int)\Util\post('email-pool') : 100;
+    $daily_hours = \Util\post('daily-hours') && (int)\Util\post('daily-hours') >= MIN_DAILY_HOURS && (int)\Util\post('daily-hours') <= MAX_DAILY_HOURS ? (int)\Util\post('daily-hours') : DEFAULT_DAILY_HOURS;
+    $meeting_mins = \Util\post('meeting-length') && (int)\Util\post('meeting-length') >= MIN_MEETING_MINS && (int)\Util\post('meeting-length') <= MAX_MEETING_MINS ? (int)\Util\post('meeting-length') : DEFAULT_MEETING_MINS;
+    $start_date_val = \Util\post('start-date-dt') ? \Util\post('start-date-dt') : DEFAULT_START_DT;
+    $date_day_2 = \Util\post('day-2') ? \Util\post('day-2') : '';
+    $date_day_3 = \Util\post('day-3') ? \Util\post('day-3') : '';
+    $push_date = \Util\post('push-date') ? \Util\post('push-date') : '';
 
-    $start_breaks = \Util\get('break-start') && is_array(\Util\get('break-start')) ? \Util\get('break-start') : unserialize(DEFAULT_BREAK_START);
-    $end_breaks = \Util\get('break-end') && is_array(\Util\get('break-end')) ? \Util\get('break-end') : unserialize(DEFAULT_BREAK_END);
+    $start_breaks = \Util\post('break-start') && is_array(\Util\post('break-start')) ? \Util\post('break-start') : unserialize(DEFAULT_BREAK_START);
+    $end_breaks = \Util\post('break-end') && is_array(\Util\post('break-end')) ? \Util\post('break-end') : unserialize(DEFAULT_BREAK_END);
     $break_time_inputs = '';
     for ( $i = 0; $i < count( $start_breaks ) && $i < count( $end_breaks ); $i ++ ) {
         $break_time_inputs .= "<div class='form-group new-break-input-container'>"
@@ -30,14 +31,15 @@ function build_schedule_controls_form() {
                               . "<input type='text' name='break-end[]' class='form-control break-timepicker' value='{$end_breaks[$i]}'></label></div>";
     }
 
-    $calendar_name = \Util\get('calendar-name') && $loggedIn ? \Util\get('calendar-name') : '';
+    $calendar_name = \Util\post('calendar-id') && $loggedIn ? \Util\post('calendar-id') : '';
     $lower_form_mso365 = $loggedIn ?
         "<label for='calendar-name'>Calendar Name: (Outlook Calendar to create)<input type='text' name='calendar-id' value='{$calendar_name}' class='form-control'></label>"
         : '';
 
 
+    $conflicts = \Util\post('conflicts') ? \Util\post('conflicts') : '';
     $mock_content_form = <<<DOCSTRING
-                    <form action="index.php" name="config">
+                    <form action="index.php" method="post" name="config">
                         <div class="row">
                             <div class="form-group">
                                 <div class="col-sm-12">
@@ -67,7 +69,7 @@ function build_schedule_controls_form() {
                                               </p>
                                             <label for="mock-projects">
                                                 Use Mock Projects (min 10)
-                                                <input type="number" name="mock-projects" class="form-control" default="30" min="3" max="1000" value="{$num_mock_projects}">
+                                                <input type="number" name="mock-projects" class="form-control" default="15" min="2" max="300" value="{$num_mock_projects}">
                                             </label>
                                             <label for="mock-investors">
                                                 Mock Investors (min 1)
@@ -101,7 +103,23 @@ function build_schedule_controls_form() {
                                         </label>
                                     </div>
 
+
+
                                     <div class="row">
+
+                                        <div class="col-sm-12">
+                                            <div class="form-group">
+                                                <label for="dates-event-id">Get dates by event ID
+                                                    <input type="text" class="form-control" name="dates-event-id" id="dates-event-id" min=1 step=1/>
+                                                </label>
+
+                                                <div>
+                                                     <button class="btn btn-info" id="get-dates-by-event">Get the dates</button>
+                                                <div>
+
+                                            </div>
+                                        </div>
+
                                         <div class="form-group col-md-6 col-lg-4">
                                             <div class="form-group calendar-form-group">
                                                 <label for="start-date-dt" style="height:4rem;">Pick a start date (This will be the first day and time for the 3 day event).</label>
@@ -170,10 +188,29 @@ function build_schedule_controls_form() {
                                     <div class="form-group">
                                         {$lower_form_mso365}
                                     </div>
-                                    <div class="form-group">
-                                        <button class="btn btn-success" type="submit">Run it!</button>
-                                        <a class="btn btn-danger float-right" href="/index.php?">Restart Entire Form</a>
+
+
+                                    <div class="form-group calendar-form-group">
+                                        <label for="push-date" style="height:4rem;">Push DateTime (start from a time after events :<br></label>
+                                        <div class='input-group date' id='push-date'>
+                                            <input type='text' class="form-control" name="push-date" value="{$push_date}" />
+                                            <span class="input-group-addon">
+                                                <span class="glyphicon glyphicon-calendar"></span>
+                                            </span>
+                                        </div>
                                     </div>
+
+
+                                    <div class="form-group col-md-6 col-lg-4">
+
+                                        <div class="form-group">
+                                            <input type="hidden" name="conflicts" value="{$conflicts}" />
+
+                                            <button class="btn btn-success" type="submit">Run it!</button>
+                                            <a class="btn btn-danger float-right" href="/index.php?">Restart Entire Form</a>
+                                        </div>
+                                    </div>
+
                                 </div>
                             </div>
                         </div>

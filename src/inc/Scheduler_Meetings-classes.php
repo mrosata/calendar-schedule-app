@@ -45,29 +45,40 @@ class Scheduler {
     );
     private $start_new_day;
     private $day = 1;
+    private $start_push_date = 0;
+    // These 2 settings are to makes sure we compress all the way with new added conflicts (or there could be gaps at end.)
+    private $WATCH_CONFLICTS = true;
+    private $compressed_twice = false;
 
     function __construct($investors, $projects, $run_dates, \ms365\Calendar_Meetings_API $api, $settings = array()) {
         $this->time_lines = $investors;
-        $this->run_dates = $this->sanitize_dates($run_dates);
-        $this->pad_projects_gte_investors($projects);
+        $this->run_dates  = $this->sanitize_dates( $run_dates );
+        $this->pad_projects_gte_investors( $projects );
 
         // Store all projects by id on $this->projects.
-        foreach ($projects as $project) {
-            $this->projects[$project->id] = $project;
+        foreach ( $projects as $project ) {
+            $this->projects[ $project->id ] = $project;
         }
         $this->_projects = $projects;
 
         // Extend the settings with any passed in.
-        $this->settings['meeting_length'] = isset($settings['meeting_length']) && (int)$settings['meeting_length'] > 1 ? ((int)$settings['meeting_length'] * 60) : \Setting\SECONDS_PER_MEETING;
-        $this->settings['hours'] = isset($settings['hours']) && (int)$settings['hours'] >= 1 ? (int)$settings['hours'] : 8;
+        $this->settings['meeting_length'] = isset( $settings['meeting_length'] ) && (int) $settings['meeting_length'] > 1 ? ( (int) $settings['meeting_length'] * 60 ) : \Setting\SECONDS_PER_MEETING;
+        $this->settings['hours']          = isset( $settings['hours'] ) && (int) $settings['hours'] >= 1 ? (int) $settings['hours'] : 8;
         //$this->settings['start_datetime'] = isset($settings['start_datetime']) ? $settings['start_datetime'] : \Setting\START_DATE . ' ' . \Setting\START_TIME;
-        $this->settings['start_datetime'] = date('Y-m-d H:i', $this->run_dates[0]);
-        $this->settings['breaks'] = isset($settings['breaks']) && is_array($settings['breaks']) ? $settings['breaks'] : unserialize( \Setting\BREAKS );
-        $this->settings['cal_id'] = isset($settings['cal_id']) ? $settings['cal_id'] : '';
+        $this->settings['start_datetime'] = date( 'Y-m-d H:i', $this->run_dates[0] );
+        $this->settings['breaks']         = isset( $settings['breaks'] ) && is_array( $settings['breaks'] ) ? $settings['breaks'] : unserialize( \Setting\BREAKS );
+        $this->settings['cal_id']         = isset( $settings['cal_id'] ) ? $settings['cal_id'] : '';
 
         $this->api = $api;
         // Some dummy times.
-        $this->start_datetime = date('Y-m-d H:i:00', $this->run_dates[0]);
+        $this->start_datetime = date( 'Y-m-d H:i:00', $this->run_dates[0] );
+
+        // If this is a reschedule (push date) We must set the push start date
+        if ( defined( '\RUNNING_PUSH_DATE' ) && \RUNNING_PUSH_DATE ) {
+            $this->start_push_date = strtotime(\RUNNING_PUSH_DATE);
+        }
+
+        $push_date = strtotime( \RUNNING_PUSH_DATE );
         $this->reset_values();
     }
 
@@ -122,27 +133,22 @@ class Scheduler {
 
 
     /**
-     * @param null $calendar
+     * @param null $calendar_name
      * @param int $print
      *
      * @return bool
      * @throws \ErrorException
      */
-    function export_meetings_to_calendar($calendar = null, $print = 0) {
+    function export_meetings_to_calendar($calendar_name = null, $print = 0) {
         $this->reset_values();
         $num_time_lines       = count( $this->time_lines );
 
-        // Exit if a mock run.. This method writes to Outlook Calendar!
-        if (! \MOCK_RUN) {
-            echo "<h1>MOCK RUN!</h1>";
-            return false;
-        }
-        if (is_null($calendar) || !$calendar) {
-            $calendar = \Setting\DEFAULT_CALENDAR_NAME;
+        if (is_null($calendar_name) || !$calendar_name) {
+            $calendar_name = \Setting\DEFAULT_CALENDAR_NAME;
         }
         // If calendar was passed null then we should find or make one.
-        if ( !is_null( $calendar ) ) {
-            $calendar = $this->api->get_or_create_calendar_id($calendar);
+        if ( !is_null( $calendar_name ) ) {
+            $calendar = $this->api->get_or_create_calendar_id($calendar_name);
         }
 
         // Check again if the calendar is null
@@ -150,28 +156,45 @@ class Scheduler {
             throw new \ErrorException("Unable to create or get calendar.");
         }
 
-        echo "About to delete all events from {$calendar}";
         // Let's clear out the calendar so we can start over.
-        $this->api->delete_all_events( $calendar );
-        for ($row_num = 0; $row_num < count($this->projects); $row_num++) {
+        ob_start();
+        if (!defined('\RUNNING_PUSH_DATE') || !\RUNNING_PUSH_DATE) {
+            // Set from bottom crazy-settings.php (basically if user says "start at this datetime" then we
+            // can't just wipe their whole calendar. If not set or false then we can wipe it all!
+            $this->api->delete_calendar($calendar);
+            $calendar = $this->api->get_or_create_calendar_id($calendar_name);
+        } else {
+            $this->api->delete_all_events( $calendar );
+        }
+        $debug = "<h4>DEBUG</h4>";
+        for ($row_num = 0; $row_num < $this->_largest_item_stack(); $row_num++) {
+            $debug .= "<br><code>ROW {$row_num}</code>";
+            // TODO: This should be at the end of the loop or you should decriment this first event $this->meeting_length;
             $start_time = (int)$this->next_time_slot();
-            $end_time = $start_time + (int)$this->next_free_time;
+            $end_time = $start_time + (int)$this->settings['meeting_length'];
 
             for ( $i = 0; $i < $num_time_lines; $i ++ ) {
+                $debug .= "<br>---<code>TIME LINE: {$i}</code>";
+                if (!isset($this->time_lines[$i]))
+                    continue;
+
                 $investor = $this->time_lines[$i];
-
-                if (!isset($investor->items[$row_num]))
+                if (!isset($investor->items[$row_num]) || $this->_slot_is_empty($investor, $row_num)) {
+                    $debug .= "<br>------ EMPTY!";
                     continue;
+                }
 
-                $project = $investor->items[$row_num];
-                if (!is_a($project, '\Project'))
-                    continue;
+                $project = $investor->items[$row_num];/*
+                if (!is_a($project, '\Project') || !($project->id && $project->id !== 0))
+                    continue;*/
 
                 $event = array(
                     'start' => new \DateTime(date('Y-m-d H:i', $start_time)),
                     'end' => new \DateTime(date('Y-m-d H:i', $end_time)),
                     'subject' => "{$investor->name} to meet {$project->project_title}",
-                    'content' => "Investor {$investor->name} is to meet with project {$project->project_title}.",
+                    'body' => array(
+                        "ContentType" => "HTML",
+                        "Content" => "@@[I={$investor->id}&P={$project->id}]@@"),
                     'location' => \CONVENTION_LOCATION,
                     'attendees' => array(),
                     'id' => $calendar
@@ -201,12 +224,18 @@ class Scheduler {
 
                 if ($print) {
                     echo "<br><h3>Creating Next Event</h3>";
-                    \Util\print_pre( $event );
+                    //\Util\print_pre( $event );
                     \Util\print_pre($resp);
                     echo "<hr>";
                 }
             }
+            ob_flush();
+            flush();
         }
+        if (defined('DEBUG_EVENTS') && DEBUG_EVENTS) {
+            echo $debug;
+        }
+
     }
 
 
@@ -290,6 +319,10 @@ class Scheduler {
             return $this->next_time_slot($return_null_if_conflict);
         }
 
+        // If we are rescheduling "Push Date"ing. Then we can't start schedule til push date is past.
+        if ( $this->start_push_date && $starting_at < $this->start_push_date) {
+            return $this->next_time_slot();
+        }
         // Make sure not interfering with any breaks.
         foreach($this->settings['breaks'] as $break) {
             $ending_at = $starting_at + (int)$this->settings['meeting_length'];
@@ -362,6 +395,21 @@ class Scheduler {
 
 
     /**
+     * Count the items in the time line with most slots so that if we
+     * are looping for instance we could use this to keep a dynamic
+     * condition on the max loop iterations.
+     *
+     * @return int|mixed
+     */
+    private function _largest_item_stack() {
+        $stacks = count($this->time_lines);
+        $max = 0;
+        while ($stacks--) {
+            $max = max(count($this->time_lines[$stacks]->items), $max);
+        }
+        return $max;
+    }
+    /**
      * Walk through every single time slot looking for empty slots and fill them in with
      * the latest meeting in that time_line that will not cause a collision.
      *
@@ -371,31 +419,59 @@ class Scheduler {
         if ($this->timelines_are_empty()) {
             throw new \ErrorException("Can't compress meetings until sheduling timelines!");
         }
+        $this->reset_values();
 
         $num_time_lines = count($this->time_lines);
-        $num_slots = count($this->time_lines[0]->items);
 
-// Iterate Every time slot as array: (8:00, 8:10, 8:20 ect...)
-        for ( $slot = 0; $slot < $num_slots; $slot ++ ) {
-// Store every ID from this time_slot into array to use in comparisons
+        // Iterate Every time slot as array: (8:00, 8:10, 8:20 ect...)
+        // use the function count() in iteration constraint b/c it may grow when pushing meetings to end.
+        $highest_stack = $this->_largest_item_stack();
+        for ( $slot = 0; $slot < $highest_stack; $slot ++ ) {
+            // need to recalculate the height of tallest stack each time.
+            $highest_stack = $this->_largest_item_stack();
+
+            /* This is important, we need to adjust clock as if we are building schedule (so we can do checks against time conflicts) */
+            // Store every ID from this time_slot into array to use in comparisons
             $projects_in_slot = $this->_project_ids_at($slot, $num_time_lines);
 
-            if (count($projects_in_slot) == $num_time_lines || !count($projects_in_slot)) {
-// If count is the same then there are no empty slots this time_slot.
-                continue;
+            if (!count($projects_in_slot)) {
+                    // If count is the same then there are no empty slots this time_slot.
+                    $this->next_time_slot();
+                    continue;
             }
 
 // Check each time_line in this time_slot for empty slot
             for ( $j = 0; $j < $num_time_lines; $j ++ ) {
-                if ($this->_slot_is_empty($this->time_lines[$j], $slot)) {
+                // This timeline might be done already (some are longer then others in the end).
+                if (isset($this->time_lines[$j]->items[ $slot ])) {
+                    $project = $this->time_lines[$j]->items[ $slot];
+
+                $empty_for_sure = false;
+                // Check if the project here has a collision with time
+                } else { continue; }
+                if ($this->_has_collision_at($this->time_lines[$j]) || $this->_has_collision_at($project)) {
+                    /* This project can't show at this time due to human collision scheduling (they said they can't meet now).
+                          so we push them to the top of the array and leave this slot empty */
+                    $this->_push_slot_to_top($this->time_lines[$j], $slot);
+                    $empty_for_sure = true;
+                }
+                // If the above condition met then this will be true.
+                if ($empty_for_sure || $this->_slot_is_empty($this->time_lines[$j], $slot)) {
 // Fill in slot with later meeting and update the $projects in slot
                     $this->_fill_slot_from_top($this->time_lines[$j], $slot, $projects_in_slot);
                 }
             }
+            // move to the next time slot.
+            $this->next_time_slot();
 
-        }
+        } /* end for */
+
+        /* End - public function compress_meetings() */
         $this->_remove_padding();
-
+        if ($this->WATCH_CONFLICTS && !$this->compressed_twice) {
+            $this->compressed_twice = true;
+            $this->compress_meetings();
+        }
     }
 
 
@@ -410,7 +486,7 @@ class Scheduler {
             $items_in_reverse = array_reverse($this->time_lines[$i]->items);
 
             $items_in_reverse = array_filter($items_in_reverse, function($project) {
-                if (!is_a($project, 'Project') || is_null($project->id)) {
+                if (!is_a($project, 'Project') /*|| is_null($project->id)*/) {
                     return false;
                 }
                 return true;
@@ -419,6 +495,27 @@ class Scheduler {
             $this->time_lines[$i]->items = array_reverse($items_in_reverse);
         }
         return $this->time_lines;
+    }
+
+
+    /**
+     * Push the current project from its slot to the top of the Array (last meeting) and then
+     * replace it with an empty project for now.
+     *
+     * @param $time_line
+     * @param $slot
+     *
+     * @return mixed
+     */
+    private function _push_slot_to_top(&$time_line, $slot) {
+        if (isset($time_line->items[$slot])) {
+            // Create a new empty project, then replace real project and push real project to top of the list
+            $empty_slot = new \Project();
+            $temp = $time_line->items[$slot];
+            $time_line->items[$slot] = $empty_slot;
+            array_push($time_line->items, $temp);
+        }
+        return $time_line;
     }
 
 
@@ -442,18 +539,66 @@ class Scheduler {
             }
 
             $pid = $time_line->items[$i]->id;
-// Check for collisions before swapping time slots
-            if ( ! $this->_has_collision_in($pid, $collides_with, 0) ) {
-// We can swap $i into current empty $slot
+            // Check for collisions before swapping time slots
+            if ( ! $this->_has_collision_in($pid, $collides_with, 0) && ! $this->_has_collision_at( $time_line->items[$i] ) ) {
+                // We can swap $i into current empty $slot
                 $temp = $time_line->items[$slot];
                 $time_line->items[$slot] = $time_line->items[$i];
                 $time_line->items[$i] = $temp;
-// push id onto the $collides_with array
+                /* push id onto the $collides_with array */
                 $collides_with[] = $pid;
                 return $time_line->items[$slot]->id;
             }
         }
-        return null;
+        // Just return empty project
+        return new \Project();
+    }
+
+
+
+    private function _projects_have_collision_at($investor) {
+        foreach ($investor->projects as $pid) {
+            if ($this->_has_collision_at($this->projects[(int)$pid])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Helper Method. Test if project with id $pid has a collision at the current time which
+     * we are scheduling the meeting at.
+     *
+     * @param $obj - Either Investor or Project Object with collisions array.
+     *
+     * @return bool
+     */
+    private function _has_collision_at($obj) {
+        if (!is_object($obj) || !is_array($obj->collisions) || !count($obj->collisions)) {
+            return false;
+        }
+        $collisions = $obj->collisions;
+
+        // Get the time slot that we are going to check if there is scheudule conflict.
+        $meeting_length = (int)$this->settings['meeting_length'];
+        $starting_at = (int)$this->current_time;
+        $ending_at = $this->current_time + $meeting_length;
+
+        // Check each collision on this project and return true if find one with current time.
+        foreach($collisions as $collision) {
+            $collision_start = $collision['from'];
+            $collision_end = $collision['to'];
+            if (
+                ($starting_at >= $collision_start && $starting_at < $collision_end)
+                || ($ending_at > $collision_start && $ending_at < $collision_end) ) {
+
+                $start = date('Y-m-d H:i', $collision_start);
+                $end = date('H:i', $collision_end);
+                return true;
+            }
+        }
+
+        return false;
     }
 
 

@@ -16,6 +16,7 @@ class Calendar_Meetings_API {
             $_SESSION['access_token'] : $access_token;
         $this->user_email = is_null($user_email) && isset($_SESSION['user_email']) ?
             $_SESSION['user_email'] : $user_email;
+
     }
 
 
@@ -46,11 +47,17 @@ class Calendar_Meetings_API {
     }
 
 
-
-    public function get_or_create_calendar_id( $calendar_name = 'New Calendar', $group_id =null ) {
+    /**
+     * Lookup a calendar by name. This will get all the users calendars and then check for a
+     * calendar matching the name. If found it will return the calendar id, else null;
+     *
+     * @param $calendar_name
+     *
+     * @return null|string  - calendar id or null
+     */
+    public function get_calendar_by_name( $calendar_name ) {
         $all_calendars = OutlookService::getCalendars($this->access_token, $this->user_email);
 
-        \Util\print_pre($all_calendars);
         if (is_array($all_calendars) && isset($all_calendars['value'])) {
             foreach($all_calendars['value'] as $calendar) {
                 if (trim($calendar['Name']) == trim($calendar_name)) {
@@ -58,17 +65,41 @@ class Calendar_Meetings_API {
                 }
             }
         }
+        return null;
+    }
 
+
+    /**
+     * Lookup a calendar by its name and create it if not already there. Returns calendar id
+     *
+     * @param $calendar_name
+     * @param null $group_id
+     *
+     * @return null|string  - should return id of calendar in string or null if something went wrong.
+     */
+    public function get_or_create_calendar_id( $calendar_name, $group_id =null ) {
+        $calendar_id = $this->get_calendar_by_name( $calendar_name );
+
+        if ( !is_null( $calendar_id ) ) {
+            return $calendar_id;
+        }
         $calendar = array('name'=> $calendar_name);
         if (!is_null($group_id)) {
             $calendar['group'] = $group_id;
         }
         $cal = OutlookService::createCalendar( $this->access_token, $calendar );
-        \Util\print_pre( $cal );
+
         return (is_array($cal) && isset($cal['Id'])) ? $cal['Id'] : null;
     }
 
 
+    /**
+     * Delete a single event using event_id.
+     *
+     * @param $event_id
+     *
+     * @return array|mixed
+     */
     public function delete_event($event_id) {
         return OutlookService::deleteEvent($this->access_token, $this->user_email, $event_id);
     }
@@ -89,27 +120,23 @@ class Calendar_Meetings_API {
         return $deleted;
     }
 
-    public function delete_all_events($calendar_group_id = null) {
-
-        /* TODO: OB_START AND FLUSH THIS EVERY ONCE AND WHILE */
-        if ( ! is_null( $calendar_group_id ) ) {
-            $calendars = $this->get_calendars( $calendar_group_id );
-        } else {
-            $calendars = $this->get_calendars();
-        }
-
-        if (is_array($calendars) && isset($calendars['value']) && is_array($calendars['value'])) {
-            foreach ($calendars['value'] as $cal) {
-                $events = $this->get_events($cal['Id']);
-                foreach ($events['value'] as $event) {
-                    $this->delete_event($event['Id']);
-                }
+    public function delete_all_events($calendar_id) {
+        $events = $this->get_events( $calendar_id );
+        while (is_array($events['value']) && count($events['value'])) {
+            foreach ($events['value'] as $event) {
+                error_log( "About to delete: " . $event['Id'] );
+                error_log( "Subject: " . $event['Subject'] );
+                $this->delete_event($event['Id']);
+                ob_flush();
             }
-        } else {/*
-            echo "<h2>Called from deleted all events?</h2>";
-            \Util\print_pre($calendars);*/
+            try {
+                $events = $this->get_events( $calendar_id );
+            }
+            catch(\ErrorException $e) {
+                return false;
+            }
         }
-
+        return true;
     }
 
 

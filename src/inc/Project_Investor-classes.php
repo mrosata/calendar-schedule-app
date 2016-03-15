@@ -3,7 +3,6 @@
  * Created by michael on 2/22/16.
  */
 
-
 // This is how project model will look
 $project_model = array(
     'project_title' => 'movie_title',
@@ -95,6 +94,7 @@ class Investor extends ListArray {
     public $email;
     public $id;
     public $projects = array();
+    public $collisions = array();
 
     function __construct($config) {
         $this->email = $config->investor_email;
@@ -102,6 +102,19 @@ class Investor extends ListArray {
         $this->last_name = $config->investor_last_name;
         $this->name = "{$this->last_name}, {$this->first_name}";
         $this->id = $config->id;
+    }
+
+    /**
+     * // TODO: Write a check to make sure that timedate is real time?
+     * @param $collision
+     *
+     * @return bool|int
+     */
+    public function add_collision($collision) {
+        if (is_array($collision) && isset($collision['from']) && isset($collision['to'])) {
+            return array_push( $this->collisions, $collision );
+        }
+        return false;
     }
 
 
@@ -168,7 +181,8 @@ class Project {
     public $emails = array();
     public $contacts = array();
     public $interested = array();
-    public $id;
+    public $collisions = array();
+    public $id = null;
 
 
     function __construct($project=null) {
@@ -220,6 +234,33 @@ class Project {
             }
         }
 
+        if (rand(1, 100) > 0) {
+            //TODO This is temporary add a random collision.
+
+            $start = strtotime(date('Y-m-d', strtotime('+1 day')) . ' '. (rand(10, 12)) . ':' . (rand(0, 60)) . ':00');
+
+
+            $this->add_collision(array(
+                'from' => $start,
+                'to' => strtotime('+'.rand(60,120).' minute', $start)
+            ));
+
+        }
+
+    }
+
+
+    /**
+     * // TODO: Write a check to make sure that timedate is real time?
+     * @param $collision
+     *
+     * @return bool|int
+     */
+    public function add_collision($collision) {
+        if (is_array($collision) && isset($collision['from']) && isset($collision['to'])) {
+            return array_push( $this->collisions, $collision );
+        }
+        return false;
     }
 
 
@@ -227,7 +268,10 @@ class Project {
         if (is_null($this->id)) {
             return "--";
         }
-        $tooltip = "Director Email: {$this->director->email}, Producer email: {$this->producer->email}";
+        $tooltip = "Director Email: {$this->director->email}, Producer email: {$this->producer->email};";
+        if (isset($this->collisions[0]) && is_array($this->collisions[0])) {
+            $tooltip .= "\n\nCollisions: \n" . date('m-d H:i', $this->collisions[0]['from']) . ' til ' . date('H:i', $this->collisions[0]['to']);
+        }
         return "<span class='label label-info' data-container='body' data-toggle='popover' data-placement='top' data-trigger='hover' data-title='{$this->project_title}' data-content='{$tooltip}'>{$this->id}</span>";
     }
 }
