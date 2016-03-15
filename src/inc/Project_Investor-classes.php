@@ -35,7 +35,19 @@ $investor_model = array(
     'id' => ':id:',
 );
 
+/**
+ * CONFLICT LIST
+ */
 
+$conflicts = array();
+if ( !!\Util\post( 'conflicts' ) ) {
+    try {
+        $conflicts = json_decode(\Util\post( 'conflicts' ), 1);
+    }
+    catch (\ErrorException $e) {
+        $conflicts = array();
+    }
+}
 
 class ListArray {
     public $items = array();
@@ -102,6 +114,31 @@ class Investor extends ListArray {
         $this->last_name = $config->investor_last_name;
         $this->name = "{$this->last_name}, {$this->first_name}";
         $this->id = $config->id;
+
+        $this->create_conflict();
+    }
+
+
+    function create_conflict() {
+        global $conflicts;
+        if (!count($conflicts)) {
+            return null;
+        }
+
+        foreach ($conflicts as $email => $conflict) {
+            if (!!$email && $email == $this->email) {
+                // We need to add the conflict to the project
+
+                $this->add_collision(array(
+                    'from' => (int)$conflict['from'],
+                    'to' => (int)$conflict['to']
+                ));
+
+                /*$from = date('Y-m-d H:i', (int)$conflict['from']);
+                $to = date('Y-m-d H:i', (int)$conflict['to']);
+                echo "<br><strong>added a conflict investor {$this->id}</strong>: <code>{$email}</code> @ {$from} - {$to}";*/
+            }
+        }
     }
 
     /**
@@ -177,7 +214,13 @@ class Investor extends ListArray {
 class Project {
     public $project_title;
     public $producer;
+    public $producer_email;
+    public $producer_last_name;
+    public $producer_first_name;
     public $director;
+    public $director_email;
+    public $director_last_name;
+    public $director_first_name;
     public $emails = array();
     public $contacts = array();
     public $interested = array();
@@ -233,11 +276,13 @@ class Project {
                 $this->emails[] = $project->producer_email;
             }
         }
-
+        
+        $this->create_conflict();
+/*
         if (rand(1, 100) > 0) {
             //TODO This is temporary add a random collision.
 
-            $start = strtotime(date('Y-m-d', strtotime('+1 day')) . ' '. (rand(10, 12)) . ':' . (rand(0, 60)) . ':00');
+            $start = strtotime(date('Y-m-d', strtotime('+1 day')) . ' '. (rand(10, 12)) . ':' . (rand(0, 3)) . ':00');
 
 
             $this->add_collision(array(
@@ -245,11 +290,37 @@ class Project {
                 'to' => strtotime('+'.rand(60,120).' minute', $start)
             ));
 
-        }
+        }*/
+
 
     }
 
 
+    /**
+     * Create / Add a conflict to a project based on individual users who have conflicts.
+     * @return null
+     */
+    function create_conflict() {
+        global $conflicts;
+        if (!count($conflicts)) {
+            return null;
+        }
+
+        foreach ($conflicts as $email => $conflict) {
+            if (!!$email && ($email == $this->producer_email || $email == $this->director_email)) {
+                // We need to add the conflict to the project
+
+                $this->add_collision(array(
+                    'from' => (int)$conflict['from'],
+                    'to' => (int)$conflict['to']
+                ));
+/*
+                $from = date('Y-m-d H:i', (int)$conflict['from']);
+                $to = date('Y-m-d H:i', (int)$conflict['to']);
+                echo "<br><strong>added a conflict project {$this->id}</strong>: <code>{$email}</code> @ {$from} - {$to}";*/
+            }
+        }
+    }
     /**
      * // TODO: Write a check to make sure that timedate is real time?
      * @param $collision

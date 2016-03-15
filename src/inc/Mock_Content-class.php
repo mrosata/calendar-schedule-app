@@ -163,8 +163,8 @@ class Mock_Projects_Investors extends Mock_Data_Creator
 {
     function __construct() {
         parent::__construct();
-        if (isset($_GET['email-pool']) && (int)$_GET['email-pool'] > 10 && (int)$_GET['email-pool'] < 1000) {
-            $this->generate_emails((int)$_GET['email-pool']);
+        if (isset($_POST['email-pool']) && (int)$_POST['email-pool'] > 10 && (int)$_POST['email-pool'] < 1000) {
+            $this->generate_emails((int)$_POST['email-pool']);
         } else {
             $this->generate_emails(100);
         }

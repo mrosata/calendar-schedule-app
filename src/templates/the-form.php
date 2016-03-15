@@ -7,11 +7,11 @@
 function build_schedule_controls_form() {
     $loggedIn = defined('LOGGED_IN') && LOGGED_IN;
 
-    $section_id_num = (\Util\post('section-id') && (int)$_GET['section-id'] > 0) ? (int)$_GET['section-id'] : 0;
+    $section_id_num = (\Util\post('section-id') && (int)$_POST['section-id'] > 0) ? (int)$_POST['section-id'] : 0;
 
-    $mock_run = (\Util\post('mock-run') && !!$_GET['mock-run']) ? 'checked="checked"' : '';
-    $num_mock_investors = (\Util\post('mock-investors') && (int)$_GET['mock-investors'] > 0 && (int)$_GET['mock-investors'] <= 50) ? (int)$_GET['mock-investors'] : 7;
-    $num_mock_projects = (\Util\post('mock-projects') && (int)$_GET['mock-projects'] >= 2 && (int)$_GET['mock-projects'] <= 300) ? (int)$_GET['mock-projects'] : 15;
+    $mock_run = (\Util\post('mock-run') && !!$_POST['mock-run']) ? 'checked="checked"' : '';
+    $num_mock_investors = (\Util\post('mock-investors') && (int)$_POST['mock-investors'] > 0 && (int)$_POST['mock-investors'] <= 50) ? (int)$_POST['mock-investors'] : 7;
+    $num_mock_projects = (\Util\post('mock-projects') && (int)$_POST['mock-projects'] >= 2 && (int)$_POST['mock-projects'] <= 300) ? (int)$_POST['mock-projects'] : 15;
     $email_pool_val = \Util\post('email-pool') && (int)\Util\post('email-pool') >= 10 && (int)\Util\post('email-pool') <= 1000 ? (int)\Util\post('email-pool') : 100;
     $daily_hours = \Util\post('daily-hours') && (int)\Util\post('daily-hours') >= MIN_DAILY_HOURS && (int)\Util\post('daily-hours') <= MAX_DAILY_HOURS ? (int)\Util\post('daily-hours') : DEFAULT_DAILY_HOURS;
     $meeting_mins = \Util\post('meeting-length') && (int)\Util\post('meeting-length') >= MIN_MEETING_MINS && (int)\Util\post('meeting-length') <= MAX_MEETING_MINS ? (int)\Util\post('meeting-length') : DEFAULT_MEETING_MINS;
@@ -37,7 +37,28 @@ function build_schedule_controls_form() {
         : '';
 
 
-    $conflicts = \Util\post('conflicts') ? \Util\post('conflicts') : '';
+    $conflicts = !!\Util\post('conflicts') ? \Util\post('conflicts') : '';
+    $dates_event_id = !!\Util\post('$dates_event_id') ? (int)\Util\post('conflicts') : '';
+
+    $conflicts = array();
+    if ( !!\Util\post( 'conflicts' ) ) {
+        try {
+            $conflicts = json_decode(\Util\post( 'conflicts' ), 1);
+        }
+        catch (\ErrorException $e) {
+            $conflicts = array();
+        }
+    }
+
+    $display_conflicts = "<div class='row panel'><div class='panel panel-heading'>Watching for conflicts:</div><div class='panel panel-body'>";
+    foreach ($conflicts as $email => $conflict) {
+        $from = date('Y-m-d H:i', (int)$conflict['from']);
+        $to = date('Y-m-d H:i', (int)$conflict['to']);
+
+        echo "<div class='col-sm-6'><strong>{$email}</strong></div><div class='col-sm-3'><code>{$from}</code></div><div class='col-sm-3'><code>{$to}</code></div>";
+    }
+    $display_conflicts .= "</div></div>";
+
     $mock_content_form = <<<DOCSTRING
                     <form action="index.php" method="post" name="config">
                         <div class="row">
@@ -110,13 +131,17 @@ function build_schedule_controls_form() {
                                         <div class="col-sm-12">
                                             <div class="form-group">
                                                 <label for="dates-event-id">Get dates by event ID
-                                                    <input type="text" class="form-control" name="dates-event-id" id="dates-event-id" min=1 step=1/>
+                                                    <input type="text" class="form-control" name="dates-event-id" id="dates-event-id" value="{$dates_event_id}"/>
                                                 </label>
 
                                                 <div>
-                                                     <button class="btn btn-info" id="get-dates-by-event">Get the dates</button>
+                                                     <button class="btn btn-info" id="get-dates-by-event">Press to get dates</button>
                                                 <div>
 
+                                            </div>
+
+                                            <div class="conflicts-group">
+                                                {$display_conflicts}
                                             </div>
                                         </div>
 
@@ -199,6 +224,7 @@ function build_schedule_controls_form() {
                                             </span>
                                         </div>
                                     </div>
+
 
 
                                     <div class="form-group col-md-6 col-lg-4">

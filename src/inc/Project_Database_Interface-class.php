@@ -84,10 +84,13 @@ class Project_Database_Interface extends Database_Queries {
 
     function get_investor_data_from_list ($id_list) {
         // Use this array to replace x?x?x?x with the appropriate # of ?, ?, ? in prepared statement.
-        $change_query_parts = array(
-            'x?x?x?x' => implode( ', ', array_fill( 0, count( $id_list ), '?' ) )
-        );
-        return $this->prep_statement( 'cross_ref_investors', $id_list, $change_query_parts );
+        if (count( $id_list )) {
+            $change_query_parts = array(
+                'x?x?x?x' => implode( ', ', array_fill( 0, count( $id_list ), '?' ) )
+            );
+            return $this->prep_statement( 'cross_ref_investors', $id_list, $change_query_parts );
+        }
+        return null;
     }
 
 
@@ -210,7 +213,8 @@ class Investor_Project_PHP_Handler extends Project_Database_Interface {
 
             foreach($project->interested as $investor_id) {
                 if (!isset($this->investors['index'][(int)$investor_id])) {
-                    throw new \ErrorException("Investor listed in project not present in application!");
+                    continue;
+                    //throw new \ErrorException("Investor listed in project not present in application!");
                 }
                 if (!is_a(($investor = $this->investors['index'][ (int) $investor_id ]), '\Investor')) {
                     throw new \ErrorException("Investor isn't instantiated! Can't reference project until Investor class is created.");

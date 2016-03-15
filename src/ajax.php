@@ -143,8 +143,8 @@ if (LOGGED_IN) {
                     continue;
                 // If it is a valid time then push it to the object.
                 $conflicts[$conflict->exceptionEmail] = array(
-                    'from' => strtotime("{$temp_date} {$conflict->exceptionStart}"),
-                    'to' => strtotime("{$temp_date} {$conflict->exceptionEnd}")
+                    'from' => strtotime("{$temp_date} {$conflict->exceptionStartTime}"),
+                    'to' => strtotime("{$temp_date} {$conflict->exceptionEndTime}")
                 );
             }
         }

@@ -16,9 +16,9 @@ define( 'MOCK_RUN', $mock_run );
 $send_emails = ( \Util\post( 'attendees' ) && \Util\post( 'attendees' ) ) ? 1 : 0;
 define( 'SEND_EMAILS', $send_emails );
 
-$num_mock_investors = (\Util\post('mock-investors') && (int)$_GET['mock-investors'] > 0 && (int)$_GET['mock-investors'] <= 50) ? (int)$_GET['mock-investors'] : 7;
+$num_mock_investors = (\Util\post('mock-investors') && (int)$_POST['mock-investors'] > 0 && (int)$_POST['mock-investors'] <= 50) ? (int)$_POST['mock-investors'] : 7;
 define('NUM_MOCK_INVESTORS', $num_mock_investors);
-$num_mock_projects = (\Util\post('mock-projects') && (int)$_GET['mock-projects'] >= 2 && (int)$_GET['mock-projects'] <= 300) ? (int)$_GET['mock-projects'] : 15;
+$num_mock_projects = (\Util\post('mock-projects') && (int)$_POST['mock-projects'] >= 2 && (int)$_POST['mock-projects'] <= 300) ? (int)$_POST['mock-projects'] : 15;
 define('NUM_MOCK_PROJECTS', $num_mock_projects);
 $email_pool_val = \Util\post('email-pool') && (int)\Util\post('email-pool') >= 10 && (int)\Util\post('email-pool') <= 1000 ? (int)\Util\post('email-pool') : 100;
 define('EMAIL_POOL_VAL', $email_pool_val);

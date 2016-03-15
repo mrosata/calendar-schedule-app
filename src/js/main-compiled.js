@@ -57,6 +57,19 @@ jQuery(function ($) {
               if (_typeof(data.conflicts) === "object") {
                 // Get the emails and their conflicts
                 $('input[name="conflicts"]').val(JSON.stringify(data.conflicts));
+
+                var conflictsForm = "<div class='row panel'><div class='panel panel-heading'>Watching for conflicts:</div><div class='panel panel-body'>";
+                for (var email in Object.keys(data.conflicts)) {
+                  if (data.conflicts.email) {
+                    var _from = new Date().setTime(+data.conflicts[email].from).format('Y-m-d H:i');
+                    var _to = new Date().setTime(+data.conflicts[email].to).format('Y-m-d H:i');
+
+                    conflictsForm += '<div class=\'col-sm-6\'><strong>' + email + '</strong></div><div class=\'col-sm-3\'><code>' + _from + '</code></div><div class=\'col-sm-3\'><code>' + _to + '</code></div>';
+                  }
+                }
+                conflictsForm += "</div></div>";
+
+                $('.conflicts-group').html(conflictsForm);
               }
             }
           } else {
