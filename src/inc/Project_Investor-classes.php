@@ -130,8 +130,8 @@ class Investor extends ListArray {
                 // We need to add the conflict to the project
 
                 $this->add_collision(array(
-                    'from' => (int)$conflict['from'],
-                    'to' => (int)$conflict['to']
+                    'from' => strtotime($conflict['from']),
+                    'to' => strtotime($conflict['to'])
                 ));
 
                 /*$from = date('Y-m-d H:i', (int)$conflict['from']);
@@ -278,20 +278,6 @@ class Project {
         }
         
         $this->create_conflict();
-/*
-        if (rand(1, 100) > 0) {
-            //TODO This is temporary add a random collision.
-
-            $start = strtotime(date('Y-m-d', strtotime('+1 day')) . ' '. (rand(10, 12)) . ':' . (rand(0, 3)) . ':00');
-
-
-            $this->add_collision(array(
-                'from' => $start,
-                'to' => strtotime('+'.rand(60,120).' minute', $start)
-            ));
-
-        }*/
-
 
     }
 
@@ -311,13 +297,10 @@ class Project {
                 // We need to add the conflict to the project
 
                 $this->add_collision(array(
-                    'from' => (int)$conflict['from'],
-                    'to' => (int)$conflict['to']
+                    'from' => strtotime($conflict['from']),
+                    'to' => strtotime($conflict['to'])
                 ));
-/*
-                $from = date('Y-m-d H:i', (int)$conflict['from']);
-                $to = date('Y-m-d H:i', (int)$conflict['to']);
-                echo "<br><strong>added a conflict project {$this->id}</strong>: <code>{$email}</code> @ {$from} - {$to}";*/
+
             }
         }
     }

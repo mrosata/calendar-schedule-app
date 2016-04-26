@@ -13,8 +13,9 @@ class Database_Queries {
         'projects_since' => "SELECT * FROM tblcontentitems WHERE active = 'on' AND addDate > :date",
         'projects_latest' => "SELECT * FROM (SELECT * FROM tblcontentitemsextension order by versionID desc) versions group by versions.ItemID",
         'projects' => "SELECT * FROM tblcontentitems tci JOIN tblcontentitemsextension tcie ON tci.id = tcie.itemID WHERE tci.active = 'on' AND tci.addDate > ':date' group by tcie.itemID order by tcie.versionID desc;",
+        'projects_all' => "SELECT * FROM tblcontentitems tci JOIN tblcontentitemsextension tcie ON tci.id = tcie.itemID WHERE tci.active = 'on' group by tcie.itemID order by tcie.versionID desc;",
         'investors' => "SELECT * FROM tblcustomers tc JOIN tblcustomersextension tce ON tc.id = tce.customerID WHERE tc.active = 'on' group by tc.email order by tc.addDate desc",
-        'project_data' => "select tblcontentitemsapprvoed.itemID as id, 01MovieName as project_title, 00ProducerFirstName as producer_first_name, 01ProducerLastName as producer_last_name, 06ProducerEmail as producer_email, 00DirectorFirstName as director_first_name, 01DirectorLastName as director_last_name, 07DirectorEmail as director_email, 00InvIntrest as interested from tblcontentitemsapprvoed inner join tblcontentitemsextensionapproved on tblcontentitemsapprvoed.itemID=tblcontentitemsextensionapproved.itemID where sectionID = :section_id and active='on' and deleted='off'",
+        'project_data' => "select tblcontentitemsapprvoed.itemID as id, 01MovieName as project_title, 00ProducerFirstName as producer_first_name, 01ProducerLastName as producer_last_name, 06ProducerEmail as producer_email, 00DirectorFirstName as director_first_name, 01DirectorLastName as director_last_name, 07DirectorEmail as director_email, 00InvIntrest as interested from tblcontentitemsapprvoed inner join tblcontentitemsextensionapproved on tblcontentitemsapprvoed.itemID=tblcontentitemsextensionapproved.itemID where sectionID in :section_id and active='on' and deleted='off'",
         'cross_ref_investors' => "select id, email as investor_email, fName as investor_first_name, lName as investor_last_name from tblcustomers where id in (x?x?x?x)"
     );
 
@@ -78,9 +79,24 @@ class Project_Database_Interface extends Database_Queries {
         return 0;
     }
 
+    /**
+     * Take an array or integer of sectionID and run the project_data query.
+     * NOTE: I think that the method Investor_Project_PHP_Handler::load_projects
+     *      replaces the need for this method. But I updated this method to support
+     *      array functionality as well as the original int argument.
+     * 
+     * @param $section_id
+     * @return array|int
+     */
     function get_project_data($section_id) {
-        return $this->prep_statement( 'project_data', array('section_id' => (int)$section_id) );
+        if (is_integer($section_id)) {
+            $section_id = array($section_id);
+        }
+        $section_id = implode( ', ', $section_id );
+        $section_id = "($section_id)";
+        return $this->prep_statement( 'project_data', array('section_id' => $section_id) );
     }
+
 
     function get_investor_data_from_list ($id_list) {
         // Use this array to replace x?x?x?x with the appropriate # of ?, ?, ? in prepared statement.
@@ -101,7 +117,7 @@ class Project_Database_Interface extends Database_Queries {
 
     function get_projects_since($date=null) {
         if (is_null($date))
-            $date = date( 'Y-m-d', strtotime( '-1 year' ) );
+            $this->prep_statement( 'projects_all' );
         return $this->prep_statement( 'projects', array('date' => $date) );
     }
 
@@ -126,13 +142,15 @@ class Investor_Project_PHP_Handler extends Project_Database_Interface {
      * "<h3>Step 1: <small>Query Projects; Instantiate Project class objects</small></h3>";
      * Load projects into the projects array (not the investors though)
      *
-     * @param int $sectionID
+     * @param array $sectionID_array
      *
      * @return array
      */
-    function load_projects($sectionID) {
+    function load_projects( $sectionID_array = array() ) {
         $this->projects = array();
-        $temp_projects = $this->prep_statement( 'project_data', array('section_id' => (int)$sectionID) );
+        $sectionID_string = implode( ', ', $sectionID_array );
+        $sectionID_string = "($sectionID_string)";
+        $temp_projects = $this->prep_statement( 'project_data', array('section_id' => $sectionID_string) );
         foreach ( $temp_projects as $temp_project ) {
             array_push($this->projects, new \Project($temp_project));
         }

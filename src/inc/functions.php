@@ -69,15 +69,16 @@ if (defined('\RUNNING_PUSH_DATE') && \RUNNING_PUSH_DATE) {
         }
     }
 }
+
 $collisions = '';
 if (! MOCK_RUN) {
     $pdo = \Connection\get_connection();
     $db = new Investor_Project_PHP_Handler($pdo);
 
     // STEP 1 // Get products and build projects class.
-    $section_id = (int)\QUERY_VALUE_SECTION_ID ? (int)\QUERY_VALUE_SECTION_ID : 0;
-    if ($section_id > 0) {
-        $projects = $db->load_projects($section_id);
+    $section_id_array = \QUERY_VALUE_SECTION_ID ? \QUERY_VALUE_SECTION_ID : array();
+    if ($section_id_array > 0) {
+        $projects = $db->load_projects($section_id_array);
 
         // STEP 2 // Get interested investor ids list.
         $db->build_investor_list_from_projects();

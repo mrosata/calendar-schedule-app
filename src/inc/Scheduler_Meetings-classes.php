@@ -434,19 +434,19 @@ class Scheduler {
             // Store every ID from this time_slot into array to use in comparisons
             $projects_in_slot = $this->_project_ids_at($slot, $num_time_lines);
 
-            if (!count($projects_in_slot)) {
-                    // If count is the same then there are no empty slots this time_slot.
-                    $this->next_time_slot();
-                    continue;
-            }
+           /* if (!count($projects_in_slot)) {
+                // If count is the same then there are no empty slots this time_slot.
+                $this->next_time_slot();
+                continue;
+            }*/
 
-// Check each time_line in this time_slot for empty slot
+            // Check each time_line in this time_slot for empty slot
             for ( $j = 0; $j < $num_time_lines; $j ++ ) {
                 // This timeline might be done already (some are longer then others in the end).
                 if (isset($this->time_lines[$j]->items[ $slot ])) {
                     $project = $this->time_lines[$j]->items[ $slot];
 
-                $empty_for_sure = false;
+                    $empty_for_sure = false;
                 // Check if the project here has a collision with time
                 } else { continue; }
                 if ($this->_has_collision_at($this->time_lines[$j]) || $this->_has_collision_at($project)) {
@@ -540,7 +540,7 @@ class Scheduler {
 
             $pid = $time_line->items[$i]->id;
             // Check for collisions before swapping time slots
-            if ( ! $this->_has_collision_in($pid, $collides_with, 0) && ! $this->_has_collision_at( $time_line->items[$i] ) ) {
+            if ( ! $this->_has_collision_in($pid, $collides_with, 0) && !($this->_has_collision_at( $time_line->items[$i] ) || $this->_has_collision_at( $time_line )) ) {
                 // We can swap $i into current empty $slot
                 $temp = $time_line->items[$slot];
                 $time_line->items[$slot] = $time_line->items[$i];
@@ -554,16 +554,6 @@ class Scheduler {
         return new \Project();
     }
 
-
-
-    private function _projects_have_collision_at($investor) {
-        foreach ($investor->projects as $pid) {
-            if ($this->_has_collision_at($this->projects[(int)$pid])) {
-                return true;
-            }
-        }
-        return false;
-    }
 
     /**
      * Helper Method. Test if project with id $pid has a collision at the current time which
@@ -588,6 +578,7 @@ class Scheduler {
         foreach($collisions as $collision) {
             $collision_start = $collision['from'];
             $collision_end = $collision['to'];
+
             if (
                 ($starting_at >= $collision_start && $starting_at < $collision_end)
                 || ($ending_at > $collision_start && $ending_at < $collision_end) ) {

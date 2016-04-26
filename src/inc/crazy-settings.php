@@ -1,5 +1,27 @@
 <?php
 
+/**
+ * Get the array of sectionID to use in the calendar.
+ * 
+ * @param $section_id_string string - Comma separated string
+ * @return array
+ */
+function pull_section_ids_from_string($section_id_string = '') {
+    $arr = explode(",", $section_id_string);
+    if (!is_array($arr)) {
+        $arr = array();
+    }
+    foreach ($arr as $key => $item) {
+        if ($item === '') {
+            unset( $arr[$key] );
+        } else {
+            $arr[$key] = (int)$item;
+        }
+    }
+    return $arr;
+}
+
+
 // This resets each page load
 $_SESSION['export_calendar'] = !!\Util\post('export-calendar') ? 1 : 0;
 
@@ -8,7 +30,9 @@ if (!!\Util\post('section-id')) {
     $_SESSION['section-id'] = 1;
 }
 
-$section_id = !!\Util\post('section-id') && (int)\Util\post('section-id') > 0 ? (int)\Util\post('section-id') : 0;
+$section_id = !!\Util\post('section-id') && \Util\post('section-id') > 0 ? \Util\post('section-id') : 0;
+$section_id = pull_section_ids_from_string($section_id);
+// Get an array of section ids
 define( 'QUERY_VALUE_SECTION_ID', $section_id);
 
 $mock_run = ( \Util\post( 'mock-run' ) && \Util\post( 'mock-run' ) ) || $_SERVER['SERVER_NAME'] == '0.0.0.0' ? 1 : 0;

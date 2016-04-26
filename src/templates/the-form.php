@@ -37,27 +37,33 @@ function build_schedule_controls_form() {
         : '';
 
 
-    $conflicts = !!\Util\post('conflicts') ? \Util\post('conflicts') : '';
-    $dates_event_id = !!\Util\post('$dates_event_id') ? (int)\Util\post('conflicts') : '';
+    $conflicts = \Util\post('conflicts') ? \Util\post('conflicts') : '';
+    $dates_event_id = \Util\post('$dates-event-id') ? (int)\Util\post('dates-event-id') : '';
 
-    $conflicts = array();
+    // Build a list of conflicts for the client to be able to see that we arre taking that into consideration.
+    $display_conflicts = "";
     if ( !!\Util\post( 'conflicts' ) ) {
+
         try {
-            $conflicts = json_decode(\Util\post( 'conflicts' ), 1);
+            $text_conflicts = json_decode(\Util\post( 'conflicts' ), 1);
+            if (is_array($text_conflicts) && count($text_conflicts)) {
+                $display_conflicts = "<div class='row panel'><div class='panel panel-heading'>Watching for conflicts:</div><div class='panel panel-body'>";
+                foreach ($text_conflicts as $email => $conflict) {
+                    $from = $conflict['from'];
+                    $to = $conflict['to'];
+
+                    echo "<div class='col-sm-6'><strong>{$email}</strong></div><div class='col-sm-3'><code>{$from}</code></div><div class='col-sm-3'><code>{$to}</code></div>";
+                }
+                $display_conflicts .= "</div></div>";
+
+                $conflicts = json_encode( $conflicts );
+            }
+
         }
         catch (\ErrorException $e) {
-            $conflicts = array();
+
         }
     }
-
-    $display_conflicts = "<div class='row panel'><div class='panel panel-heading'>Watching for conflicts:</div><div class='panel panel-body'>";
-    foreach ($conflicts as $email => $conflict) {
-        $from = date('Y-m-d H:i', (int)$conflict['from']);
-        $to = date('Y-m-d H:i', (int)$conflict['to']);
-
-        echo "<div class='col-sm-6'><strong>{$email}</strong></div><div class='col-sm-3'><code>{$from}</code></div><div class='col-sm-3'><code>{$to}</code></div>";
-    }
-    $display_conflicts .= "</div></div>";
 
     $mock_content_form = <<<DOCSTRING
                     <form action="index.php" method="post" name="config">
@@ -131,7 +137,7 @@ function build_schedule_controls_form() {
                                         <div class="col-sm-12">
                                             <div class="form-group">
                                                 <label for="dates-event-id">Get dates by event ID
-                                                    <input type="text" class="form-control" name="dates-event-id" id="dates-event-id" value="{$dates_event_id}"/>
+                                                    <input type="text" class="form-control" name="dates-event-id" id="dates-event-id" value="{$dates_event_id}">
                                                 </label>
 
                                                 <div>
@@ -140,9 +146,6 @@ function build_schedule_controls_form() {
 
                                             </div>
 
-                                            <div class="conflicts-group">
-                                                {$display_conflicts}
-                                            </div>
                                         </div>
 
                                         <div class="form-group col-md-6 col-lg-4">
@@ -181,6 +184,15 @@ function build_schedule_controls_form() {
                                             </div>
                                         </div>
                                     </div>
+
+
+                                    <div class="form-group">
+                                        <div class="conflicts-group">
+                                            {$display_conflicts}
+                                        </div>
+                                    </div>
+
+
                                     <div class="form-group">
                                         <label>Breaks</label>
 
@@ -230,7 +242,7 @@ function build_schedule_controls_form() {
                                     <div class="form-group col-md-6 col-lg-4">
 
                                         <div class="form-group">
-                                            <input type="hidden" name="conflicts" value="{$conflicts}" />
+                                            <input type="hidden" name="conflicts" id="conflicts" value="{$conflicts}" />
 
                                             <button class="btn btn-success" type="submit">Run it!</button>
                                             <a class="btn btn-danger float-right" href="/index.php?">Restart Entire Form</a>

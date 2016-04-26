@@ -16,15 +16,15 @@ jQuery(function ($) {
       $datetimepickers = [],
       timepickerOpts = { sideBySide: true, showMeridian: false, defaultTime: '8:00' };
 
-  $datetimepickers._1 = $('#start-date-dt').datetimepicker({ format: 'YYYY-MM-DD HH:mm' });
-  $datetimepickers._2 = $('#day-2').datetimepicker({ format: 'YYYY-MM-DD HH:mm' });
-  $datetimepickers._3 = $('#day-3').datetimepicker({ format: 'YYYY-MM-DD HH:mm' });
+  $datetimepickers._0 = $('#start-date-dt').datetimepicker({ format: 'YYYY-MM-DD HH:mm' });
+  $datetimepickers._1 = $('#day-2').datetimepicker({ format: 'YYYY-MM-DD HH:mm' });
+  $datetimepickers._2 = $('#day-3').datetimepicker({ format: 'YYYY-MM-DD HH:mm' });
   $datetimepickers.pushDate = $('#push-date').datetimepicker({ format: 'YYYY-MM-DD HH:mm' });
 
-  if ($datetimepickers._1.length) {
+  if ($datetimepickers._0.length) {
+    $datetimepickers._0.datetimepicker('options', timepickerOpts);
     $datetimepickers._1.datetimepicker('options', timepickerOpts);
     $datetimepickers._2.datetimepicker('options', timepickerOpts);
-    $datetimepickers._3.datetimepicker('options', timepickerOpts);
     $datetimepickers.pushDate.datetimepicker('options', timepickerOpts);
   }
 
@@ -59,12 +59,9 @@ jQuery(function ($) {
                 $('input[name="conflicts"]').val(JSON.stringify(data.conflicts));
 
                 var conflictsForm = "<div class='row panel'><div class='panel panel-heading'>Watching for conflicts:</div><div class='panel panel-body'>";
-                for (var email in Object.keys(data.conflicts)) {
-                  if (data.conflicts.email) {
-                    var _from = new Date().setTime(+data.conflicts[email].from).format('Y-m-d H:i');
-                    var _to = new Date().setTime(+data.conflicts[email].to).format('Y-m-d H:i');
-
-                    conflictsForm += '<div class=\'col-sm-6\'><strong>' + email + '</strong></div><div class=\'col-sm-3\'><code>' + _from + '</code></div><div class=\'col-sm-3\'><code>' + _to + '</code></div>';
+                for (var email in data.conflicts) {
+                  if (data.conflicts.hasOwnProperty(email)) {
+                    conflictsForm += '<strong>' + email + '</strong> @ <code>' + data.conflicts[email].from + '</code> - <code>' + data.conflicts[email].to + '</code><br>';
                   }
                 }
                 conflictsForm += "</div></div>";
