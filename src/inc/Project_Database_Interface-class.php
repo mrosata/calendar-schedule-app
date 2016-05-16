@@ -9,14 +9,32 @@ require_once 'utils.php';
 
 
 class Database_Queries {
+/*
+    tblcontentitemsextension.projectID as projectID
+    tblcontentitemsextension.investorID as investorID
+    tblcontentitemsextension.meetingStart as start
+    tblcontentitemsextension.meetingEnd as end
+    tblcontentitemsextension.eventID = id of the event
+*/
+
     public $queries = array(
+        'all_meetings' => "SELECT itemID as id, eventID as event_id, 01MovieName as title, investorID as investor, projectID as project, meetingStart as start, meetingEnd as `end` FROM `tblcontentitemsextension` JOIN tblcontentitems ON tblcontentitemsextension.itemID=tblcontentitems.id WHERE tblcontentitems.sectionID = 144",
+        'event_meetings' => "SELECT  itemID as id, eventID as event_id, 01MovieName as title, investorID as investor, projectID as project, meetingStart as start, meetingEnd as `end` FROM `tblcontentitemsextension` JOIN tblcontentitems ON tblcontentitemsextension.itemID=tblcontentitems.id WHERE tblcontentitems.sectionID = 144 AND tblcontentitemsextension.eventID = :event_id",
+        'event_investor_meetings' => "SELECT  itemID as id, eventID as event_id, 01MovieName as title, investorID as investor, projectID as project, meetingStart as start, meetingEnd as `end` FROM `tblcontentitemsextension` JOIN tblcontentitems ON tblcontentitemsextension.itemID=tblcontentitems.id WHERE tblcontentitems.sectionID = 144 AND tblcontentitemsextension.eventID = :event_id AND investorID = :investor_id",
+        'event_investors_meetings' => "SELECT  itemID as id, eventID as event_id, 01MovieName as title, investorID as investor, projectID as project, meetingStart as start, meetingEnd as `end` FROM `tblcontentitemsextension` JOIN tblcontentitems ON tblcontentitemsextension.itemID=tblcontentitems.id WHERE tblcontentitems.sectionID = 144 AND tblcontentitemsextension.eventID = :event_id AND investorID IN ( :investor_ids )",
+        'event_project_meetings' => "SELECT  itemID as id, eventID as event_id, 01MovieName as title, investorID as investor, projectID as project, meetingStart as start, meetingEnd as `end` FROM `tblcontentitemsextension` JOIN tblcontentitems ON tblcontentitemsextension.itemID=tblcontentitems.id WHERE tblcontentitems.sectionID = 144 AND tblcontentitemsextension.eventID = :event_id AND projectID = :project_id",
+        'event_projects_meetings' => "SELECT  itemID as id, eventID as event_id, 01MovieName as title, investorID as investor, projectID as project, meetingStart as start, meetingEnd as `end` FROM `tblcontentitemsextension` JOIN tblcontentitems ON tblcontentitemsextension.itemID=tblcontentitems.id WHERE tblcontentitems.sectionID = 144 AND tblcontentitemsextension.eventID = :event_id AND projectID IN ( :project_ids )",
         'projects_since' => "SELECT * FROM tblcontentitems WHERE active = 'on' AND addDate > :date",
+        //'projects_with_meetings' => "select tblcontentitemsapprvoed.itemID as id, 01MovieName as project_title, 00InvIntrest as interested from tblcontentitemsapprvoed inner join tblcontentitemsextensionapproved on tblcontentitemsapprvoed.itemID=tblcontentitemsextensionapproved.itemID where sectionID IN( :section_id ) and active='on' and deleted='off'",
         'projects_latest' => "SELECT * FROM (SELECT * FROM tblcontentitemsextension order by versionID desc) versions group by versions.ItemID",
         'projects' => "SELECT * FROM tblcontentitems tci JOIN tblcontentitemsextension tcie ON tci.id = tcie.itemID WHERE tci.active = 'on' AND tci.addDate > ':date' group by tcie.itemID order by tcie.versionID desc;",
         'projects_all' => "SELECT * FROM tblcontentitems tci JOIN tblcontentitemsextension tcie ON tci.id = tcie.itemID WHERE tci.active = 'on' group by tcie.itemID order by tcie.versionID desc;",
         'investors' => "SELECT * FROM tblcustomers tc JOIN tblcustomersextension tce ON tc.id = tce.customerID WHERE tc.active = 'on' group by tc.email order by tc.addDate desc",
-        'project_data' => "select tblcontentitemsapprvoed.itemID as id, 01MovieName as project_title, 00ProducerFirstName as producer_first_name, 01ProducerLastName as producer_last_name, 06ProducerEmail as producer_email, 00DirectorFirstName as director_first_name, 01DirectorLastName as director_last_name, 07DirectorEmail as director_email, 00InvIntrest as interested from tblcontentitemsapprvoed inner join tblcontentitemsextensionapproved on tblcontentitemsapprvoed.itemID=tblcontentitemsextensionapproved.itemID where sectionID in :section_id and active='on' and deleted='off'",
-        'cross_ref_investors' => "select id, email as investor_email, fName as investor_first_name, lName as investor_last_name from tblcustomers where id in (x?x?x?x)"
+        'investors_api' => "SELECT id, lName, fName, email FROM tblcustomers tc JOIN tblcustomersextension tce ON tc.id = tce.customerID WHERE tc.active = 'on' group by tc.email order by tc.addDate desc",
+        'project_data' => "select tblcontentitemsapprvoed.itemID as id, 01MovieName as project_title, 00ProducerFirstName as producer_first_name, 01ProducerLastName as producer_last_name, 06ProducerEmail as producer_email, 00DirectorFirstName as director_first_name, 01DirectorLastName as director_last_name, 07DirectorEmail as director_email, 00InvIntrest as interested from tblcontentitemsapprvoed inner join tblcontentitemsextensionapproved on tblcontentitemsapprvoed.itemID=tblcontentitemsextensionapproved.itemID where sectionID IN( :section_id ) and active='on' and deleted='off'",
+        'projects_api' => "select tblcontentitemsapprvoed.itemID as id, 01MovieName as project_title, 00ProducerFirstName as producer_first_name, 01ProducerLastName as producer_last_name, 06ProducerEmail as producer_email, 00DirectorFirstName as director_first_name, 01DirectorLastName as director_last_name, 07DirectorEmail as director_email, 00InvIntrest as interested from tblcontentitemsapprvoed inner join tblcontentitemsextensionapproved on tblcontentitemsapprvoed.itemID=tblcontentitemsextensionapproved.itemID where sectionID IN( :section_id ) and active='on' and deleted='off'",
+        'cross_ref_investors' => "select id, email as investor_email, fName as investor_first_name, lName as investor_last_name from tblcustomers where id in (x?x?x?x)",
+        'insert_project' => "INSERT INTO tblcontentitemsextension (sectionID, eventID, projectID, investorID, meetingStart, meetingEnd) VALUES (144, :event_id, :project_id, :investor_id, :starts, :ends)"
     );
 
     function __construct() {
@@ -50,6 +68,11 @@ class Project_Database_Interface extends Database_Queries {
         $this->today = date('Y-m-d');
     }
 
+    function query($SQL) {
+        return $this->conn->query($SQL);
+    }
+
+
     function prep_statement($statement_name, $args=array(), $replace_with = array()) {
         if ( ! isset( $this->queries[ $statement_name ] ) ) {
             return 0;
@@ -62,6 +85,10 @@ class Project_Database_Interface extends Database_Queries {
             }
         }
 
+        if ($statement_name === 'insert_project') {
+            echo $statement;
+            exit;
+        }
         try {
             $stmt = $this->conn->prepare($statement);
             $stmt->execute($args);
@@ -89,11 +116,13 @@ class Project_Database_Interface extends Database_Queries {
      * @return array|int
      */
     function get_project_data($section_id) {
+        if (!$section_id) {
+            return array();
+        }
         if (is_integer($section_id)) {
             $section_id = array($section_id);
         }
         $section_id = implode( ', ', $section_id );
-        $section_id = "($section_id)";
         return $this->prep_statement( 'project_data', array('section_id' => $section_id) );
     }
 
@@ -139,6 +168,129 @@ class Investor_Project_PHP_Handler extends Project_Database_Interface {
 
 
     /**
+     * Update a single meeting
+     *    $meeting = array(
+     *      'investor_id' => \Util\post( 'investor'  ),
+     *      'project_id' => \Util\post( 'project'  ),
+     *      'item_id' => \Util\post( 'item_id'  ),
+     *      'event_id' => \Util\post( 'event_id'  ),
+     *      'meeting_end' => \Util\post( 'end'  ),
+     *      'meeting_start' => \Util\post( 'start'  )
+     *    )
+     *
+     * @param array $meeting - An array specifying the meeting details. item_id is
+     *                         the important one.
+     * @return array|int
+     */
+    function update_meeting( $meeting ) {
+        if (isset($meeting['item_id'])  && isset($meeting['meeting_end']) &&
+            isset($meeting['meeting_start']) && isset($meeting['event_id']) &&
+            isset($meeting['project_id']) && isset($meeting['investor_id'])) {
+            $item_id = $meeting['item_id'];
+            $project_id = $meeting['project_id'];
+            $meeting_end = $meeting['meeting_end'];
+            $meeting_start = $meeting['meeting_start'];
+            $event_id = $meeting['event_id'];
+            $investor_id = $meeting['investor_id'];
+            $update_query1 = "UPDATE tblcontentitemsextension SET meetingEnd = '{$meeting_end}', meetingStart = '{$meeting_start}' WHERE projectID = {$project_id} AND investorID = {$investor_id} AND itemID = {$item_id} AND eventID = {$event_id}";
+            $update_query2 = "UPDATE tblcontentitemsextensionapproved SET meetingEnd = '{$meeting_end}', meetingStart = '{$meeting_start}' WHERE projectID = {$project_id} AND investorID = {$investor_id} AND itemID = {$item_id} AND eventID = {$event_id}";
+            $this->query($update_query2);
+            return $this->query($update_query1);
+        }
+        return 0;
+
+    }
+
+
+    /**
+     * SELECT MEETINGS FROM THE DB.
+     * optionally filter by event_id, or event_id and project_id, or event_id and investor_id
+     *
+     * @param string $event_id
+     * @param array $investor_project - include key for 1 either 'investor' => ID or 'project' => ID
+     * @return array|int
+     */
+    function select_meetings( $event_id = '', $investor_project = array()) {
+        if ($event_id === '') {
+            return $this->prep_statement('all_meetings');
+        } else {
+            // Get all meetings by event and single investor
+            if (isset($investor_project['investor']) && !!($investor_project['investor'])) {
+                return $this->prep_statement('event_investor_meetings', array('event_id'=> $event_id, 'investor_id' => $investor_project['investor']));
+            }
+            // Get all meetings by event and single project
+            if (isset($investor_project['project']) && !!($investor_project['project'])) {
+                return $this->prep_statement('event_project_meetings', array('event_id'=> $event_id, 'project_id' => $investor_project['project']));
+            }
+
+            // Get all meetings by event and in (...) investors
+            if (isset($investor_project['investors']) && !!($investor_project['investors'])) {
+                if (is_array($investor_project['investors'])) {
+                    // Turn array into string for the single query param x, x, x, x....
+                    $investor_project['investors'] = implode(', ', $investor_project['investors']);
+                    return $this->prep_statement('event_investors_meetings', array(), array(':event_id'=> $event_id, ':investor_ids' => $investor_project['investors']));
+                }
+            }
+
+            // Get all meetings by event and in (...) projects
+            if (isset($investor_project['projects']) && !!($investor_project['projects'])) {
+                if (is_array($investor_project['projects'])) {
+                    // Turn array into string for the single query param x, x, x, x....
+                    $investor_project['projects'] = implode(', ', $investor_project['projects']);
+                    return $this->prep_statement('event_projects_meetings', array(),  array(':event_id'=> $event_id, ':project_ids' => $investor_project['projects']));
+                }
+            }
+
+            // Get all meetings by event
+            return $this->prep_statement('event_meetings', array('event_id'=> $event_id));
+        }
+    }
+
+
+
+    /**
+     * DELETE ALL MEETINGS FROM THE DB.
+     */
+    function delete_all_meetings( $event_id = '') {
+        if (!$event_id) {
+            print "NO EVENT ID:";
+        } else {
+            //$this->query("DELETE FROM tblcontentitemsextension WHERE eventID > 0");
+            $this->query("DELETE FROM tblcontentitemsextension WHERE eventID > 0 && eventID = {$event_id}");
+        }
+    }
+
+    
+    /**
+     * array(
+     *   project_id: int
+     *   investor_id: int
+     *   starts: DateTime
+     *   ends: DateTime
+     * )
+     * @param $meeting_info
+     * @return array|int
+     */
+   /* function add_new_meeting($meeting_info) {
+        if (!isset($meeting_info['event_id'])) {
+            $meeting_info['event_id'] =\EVENT_ID;
+        }
+        return $this->prep_statement('insert_project', $meeting_info);
+    }*/
+/*
+    function add_new_meetings($meetings_info_array) {
+        foreach ($meetings_info_array as $meeting) {
+            $converted_meeting = array();
+            $converted_meeting['project_id'] = $meeting['project'];
+            $converted_meeting['starts'] = is_a( $meeting['starts'], '\DateTime' ) ? $meeting['starts']->format('Y-m-d H:i:s') : $meeting['starts'];
+            $converted_meeting['ends'] = is_a( $meeting['end'], '\DateTime') ? $meeting['end']->format('Y-m-d H:i:s') : $meeting['end'];
+
+            $this->add_new_meeting($converted_meeting);
+        }
+    }*/
+
+
+    /**
      * "<h3>Step 1: <small>Query Projects; Instantiate Project class objects</small></h3>";
      * Load projects into the projects array (not the investors though)
      *
@@ -146,14 +298,19 @@ class Investor_Project_PHP_Handler extends Project_Database_Interface {
      *
      * @return array
      */
-    function load_projects( $sectionID_array = array() ) {
+    function load_projects( $sectionID_array ) {
         $this->projects = array();
+        if (!$sectionID_array) {
+            //return array();
+            return $this->projects;
+        }
         $sectionID_string = implode( ', ', $sectionID_array );
-        $sectionID_string = "($sectionID_string)";
-        $temp_projects = $this->prep_statement( 'project_data', array('section_id' => $sectionID_string) );
+        
+        $temp_projects = $this->prep_statement( 'project_data', array(), array(':section_id' => $sectionID_string) );
         foreach ( $temp_projects as $temp_project ) {
             array_push($this->projects, new \Project($temp_project));
         }
+        // Figure out how to get this to query multiple sectionIDs
 
         return $this->projects;
     }

@@ -6,8 +6,8 @@
 // The form
 function build_schedule_controls_form() {
     $loggedIn = defined('LOGGED_IN') && LOGGED_IN;
-
-    $section_id_num = (\Util\post('section-id') && (int)$_POST['section-id'] > 0) ? (int)$_POST['section-id'] : 0;
+    
+    $section_id_num = (\Util\post('section-id'));
 
     $mock_run = (\Util\post('mock-run') && !!$_POST['mock-run']) ? 'checked="checked"' : '';
     $num_mock_investors = (\Util\post('mock-investors') && (int)$_POST['mock-investors'] > 0 && (int)$_POST['mock-investors'] <= 50) ? (int)$_POST['mock-investors'] : 7;
@@ -38,11 +38,11 @@ function build_schedule_controls_form() {
 
 
     $conflicts = \Util\post('conflicts') ? \Util\post('conflicts') : '';
-    $dates_event_id = \Util\post('$dates-event-id') ? (int)\Util\post('dates-event-id') : '';
+    $dates_event_id = \Util\post('dates-event-id') ? (int)\Util\post('dates-event-id') : '';
 
     // Build a list of conflicts for the client to be able to see that we arre taking that into consideration.
     $display_conflicts = "";
-    if ( !!\Util\post( 'conflicts' ) ) {
+    if ( !!\Util\post( 'conflicts' )) {
 
         try {
             $text_conflicts = json_decode(\Util\post( 'conflicts' ), 1);
@@ -52,7 +52,7 @@ function build_schedule_controls_form() {
                     $from = $conflict['from'];
                     $to = $conflict['to'];
 
-                    echo "<div class='col-sm-6'><strong>{$email}</strong></div><div class='col-sm-3'><code>{$from}</code></div><div class='col-sm-3'><code>{$to}</code></div>";
+                    //echo "<div class='col-sm-6'><strong>{$email}</strong></div><div class='col-sm-3'><code> {$from} </code></div><div class='col-sm-3'><code> {$to} </code></div>";
                 }
                 $display_conflicts .= "</div></div>";
 
@@ -70,7 +70,7 @@ function build_schedule_controls_form() {
                         <div class="row">
                             <div class="form-group">
                                 <div class="col-sm-12">
-                                    <div class="well well-md">
+                                    <div class="well well-md hidden">
                                         <label for="mock-run">Mock Run? (check to do testing)</label>
                                         <input type="checkbox" name="mock-run" $mock_run class="form-control checkbox">
 
@@ -136,7 +136,7 @@ function build_schedule_controls_form() {
 
                                         <div class="col-sm-12">
                                             <div class="form-group">
-                                                <label for="dates-event-id">Get dates by event ID
+                                                <label for="dates-event-id">Generate schedule for Copro EventID (This will remove and rebuild any meetings equal to eventID):
                                                     <input type="text" class="form-control" name="dates-event-id" id="dates-event-id" value="{$dates_event_id}">
                                                 </label>
 
@@ -202,22 +202,8 @@ function build_schedule_controls_form() {
                                     </div>
 
                                     <div class="form-group">
-                                        <label for="section-id">SectionID to write events for: (example: 87)
-                                            <input type="number" name="section-id" value="{$section_id_num}" class="form-control input-md">
-                                        </label>
-                                    </div>
-
-
-                                    <div class="form-group">
-                                        <label for="attendees">Send emails to attendees? (uncheck while testing)
-                                            <input type="checkbox" name="attendees" class="form-control checkbox checkbox-md">
-                                        </label>
-                                    </div>
-
-
-                                    <div class="form-group">
-                                        <label for="export-calendar">Export Events to Calendar? (EXPORT TO OUTLOOK)
-                                            <input type="checkbox" name="export-calendar" class="form-control checkbox checkbox-md">
+                                        <label for="section-id">Comma separated SectionIDs to use in project search: (example: 87,88,89)
+                                            <input type="text" name="section-id" value="{$section_id_num}" class="form-control input-md">
                                         </label>
                                     </div>
 
@@ -238,6 +224,13 @@ function build_schedule_controls_form() {
                                     </div>
 
 
+                                    <div class="form-group" style="border: 1px #555 solid;border-radius:4px">
+                                        <legend>
+                                            <label for="finalize">Check Here To Overwrite Entire Calendar!
+                                                <input type="checkbox" name="finalize" class="form-control checkbox checkbox-md">
+                                            </label>
+                                        </legend>
+                                    </div>
 
                                     <div class="form-group col-md-6 col-lg-4">
 
@@ -261,6 +254,24 @@ DOCSTRING;
 
     return $mock_content_form;
 }
+
+/*
+ *
+
+                                    <div class="form-group">
+                                        <label for="attendees">Send emails to attendees? (uncheck while testing)
+                                            <input type="checkbox" name="attendees" class="form-control checkbox checkbox-md">
+                                        </label>
+                                    </div>
+
+
+                                    <div class="form-group">
+                                        <label for="export-calendar">Export Events to Calendar? (EXPORT TO OUTLOOK)
+                                            <input type="checkbox" name="export-calendar" class="form-control checkbox checkbox-md">
+                                        </label>
+                                    </div>
+
+ */
 
 echo build_schedule_controls_form();
 

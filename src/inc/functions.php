@@ -9,7 +9,7 @@ require_once 'utils.php';
 require_once 'connection.php';
 require_once 'Project_Database_Interface-class.php';
 
-global $api;
+
 global $run_dates; // from crazy-settings
 global $projects;
 global $investors;
@@ -18,65 +18,15 @@ global $all_projects;
 
 // RUNNING_PUSH_DATE set at the bottom of crazy-settings.php
 $push_date_investors = array();
-if (defined('\RUNNING_PUSH_DATE') && \RUNNING_PUSH_DATE) {
-    // The user wants to start the schedule into the events (already started and some have happened)
-    // This also requires that we have a calendar-id (because we need to know which events to work with)
-    // also.. we need to work on the same calendar which the push-date relates to
-    $push_date = strtotime(\Util\post( 'push-date' ));
-    $calendar_name = \Util\post( 'calendar-id' );
-    $calendar_id = $api->get_or_create_calendar_id( $calendar_name );
-    $previous_scheduled_events = $api->get_events( $calendar_id );
-    //\Util\print_pre($previous_scheduled_events);
-    //exit();
-    if (isset($previous_scheduled_events['value']) && is_array($previous_scheduled_events['value'])) {
-        foreach ($previous_scheduled_events['value'] as $event) {
-            if (isset($event['Body']) && is_array($event['Body']) && isset($event['Body']['Content'])) {
-                $event_project = preg_match("|@@\[([^]]+)\]@@|", $event['Body']['Content'], $matches);
-                if (count($matches) > 1) {
-                    $investor_project = explode("&", $matches[1]);
-                    $data = array();
-                    // get the ids from the investor and project stored in body of the event
-                    $data['I'] = explode('=', $investor_project[0])[1];
-                    $data['P'] = explode('=', $investor_project[1])[1];
-                    $data['start'] = new \DateTime(
-                        preg_replace("|([^T]+)T([^.]+).*|", '$1 $2', $event['Start']['DateTime'])
-                        , new \DateTimeZone( 'UTC' ));
-                        /*, new \DateTimeZone($event['Start']['TimeZone']));*/
-                    $data['end'] = new \DateTime(
-                        preg_replace("|([^T]+)T([^.]+).*|", '$1 $2', $event['End']['DateTime'])
-                        , new \DateTimeZone( 'UTC' ));
-                       /* , new \DateTimeZone($event['End']['TimeZone']))*/;
-
-                    $data['start'] = $data['start']->setTimezone(new \DateTimeZone(date_default_timezone_get()))->format('Y-m-d H:i:s');
-                    $data['end'] = $data['end']->setTimezone(new \DateTimeZone(date_default_timezone_get()))->format('Y-m-d H:i:s');
-
-
-                    //$push_date = \RUNNING_PUSH_DATE;
-                    //echo "push? {$data['start']} <= {$push_date}<br>";
-                    //echo "push? ".strtotime( $data['start'] )." <= ".strtotime(\RUNNING_PUSH_DATE)."<br>";
-
-                    // If this meeting has happened already then we will keep it for checks later to avoid conflicts.
-                    if ( strtotime( $data['start'] ) < strtotime(\RUNNING_PUSH_DATE . ':00') ) {
-                        // Now store easy access to this object by investor ID.
-                        if (!isset($push_date_investors[ (int)$data['I'] ])) {
-                            $push_date_investors[ (int)$data['I'] ] = array();
-                        }
-                        // These are the projects they saw
-                        $push_date_investors[ (int)$data['I'] ][] = (int)$data['P'];
-                    }
-                }
-            }
-        }
-    }
-}
 
 $collisions = '';
 if (! MOCK_RUN) {
     $pdo = \Connection\get_connection();
     $db = new Investor_Project_PHP_Handler($pdo);
-
+    
+    
     // STEP 1 // Get products and build projects class.
-    $section_id_array = \QUERY_VALUE_SECTION_ID ? \QUERY_VALUE_SECTION_ID : array();
+    $section_id_array = \QUERY_VALUE_SECTION_ID ? unserialize(\QUERY_VALUE_SECTION_ID) : array();
     if ($section_id_array > 0) {
         $projects = $db->load_projects($section_id_array);
 
@@ -93,6 +43,7 @@ if (! MOCK_RUN) {
         // STEP 5 // Use these in the application like we did with mock data objects.
         $all_investors = $db->get_investors();
         $all_projects = $db->get_projects();
+
     } else {
         // don't have data to get single section!
         $all_investors = array();
@@ -143,17 +94,8 @@ if (! MOCK_RUN) {
 
 unset( $projects );
 unset( $investors );
-$shed = new Scheduler($all_investors, $all_projects, $run_dates,  $api, unserialize(SCHEDULE_SETTINGS) );
+$shed = new Scheduler($all_investors, $all_projects, $run_dates, unserialize(SCHEDULE_SETTINGS) );
 
-// Delete all the calendars (this is more for testing).
-//$calendars_resp = $api->delete_all_calendars();
-$calendars_resp = $api->get_calendars();
-if (!is_array($calendars_resp) || !isset($calendars_resp['value'])) {
-    echo "<h1 class='bg-danger'>You need to login again!</h1>";
-    echo "<form method='post' action='index.php'><input type='hidden' name='unset-session-creds' value='1'><button type='submit' class='btn btn-large btn-danger'>Reset the session</button></form>";
-    exit();
-}
-\Util\show_template('projects-investors-accordion.php');
 
 
 function do_step($step_method, $return_table=0) {
@@ -161,7 +103,7 @@ function do_step($step_method, $return_table=0) {
     if ( method_exists($shed ,$step_method ) ) {
         $shed->$step_method();
         if ($return_table) {
-            return $shed->show_time_lines();
+            return @$shed->show_time_lines();
         }
         return true;
     }
@@ -172,4 +114,26 @@ function do_step($step_method, $return_table=0) {
 function export_meetings_to_outlook() {
     global $shed;
     return $shed->export_meetings_to_calendar(\Util\post('calendar-id'), 0);
+}
+
+function export_meetings_to_json() {
+    global $shed;
+    $all_event_data = $shed->all_event_data();
+    return json_encode($all_event_data);
+}
+
+function get_all_database_meetings($event_id = '', $investor_or_project_filter = array()) {
+    global $db;
+    return $db->select_meetings($event_id, $investor_or_project_filter);
+}
+
+
+function export_meetings_to_tqtag() {
+    global $shed;
+    global $db;
+    // Delete all TQ TAG MEETINGS!
+    $db->delete_all_meetings( \EVENT_ID );
+    // Add meetings using TQ-Tag url function as callback to Sheduler::all_event_data()
+    $all_event_data = $shed->all_event_data( 1 );
+    return $all_event_data;
 }

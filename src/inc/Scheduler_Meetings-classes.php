@@ -4,6 +4,41 @@
  */
 namespace copro;
 
+
+function send_event_to_tq_tag($start_time, $investor, $project) {
+    $date = date('Y-m-d H:i', $start_time);
+    $project_id = $project->id;
+    $investor_email = $investor->email;
+    @file_get_contents("http://copro.tqsft.co.il/?mode=insertContent&insertSectionID={$project_id}&title=".urlencode($date)."&shortTitle=".urlencode($investor_email)."&printJson=yes");
+}
+
+
+/**
+ * array(
+ *   project_id: int
+ *   investor_id: int
+ *   starts: DateTime
+ *   ends: DateTime
+ * )
+ * @param $meeting
+ */
+function insert_meeting_tqtag( $meeting ) {
+    $event_id = !!\EVENT_ID ? \EVENT_ID : 1234;
+    $project_id = $meeting['project'];
+    $investor_id = $meeting['investor'];
+    $title = urlencode($meeting['title']);
+    $ends = urlencode(is_a( $meeting['end'], '\DateTime') ? $meeting['end']->format('Y-m-d H:i:s') : $meeting['end']);
+    $starts = urlencode(is_a( $meeting['start'], '\DateTime' ) ? $meeting['start']->format('Y-m-d H:i:s') : $meeting['start']);
+
+    //http://copro.tqsoft.co.il/?mode=insertQuery&insertSectionID=144&projectID=228&investorID=2&meetingStart=2016-05-14+08%3A00%3A00&meetingEnd=2016-05-14+08%3A30%3A00&eventID=&jsonResponse=1
+
+
+    /*echo "http://copro.tqsoft.co.il/?mode=insertContent&insertSectionID=144&projectID={$project_id}&investorID={$investor_id}&meetingStart={$starts}&meetingEnd={$ends}&eventID={$event_id}&jsonResponse=1";
+    exit;
+    */return @file_get_contents("http://copro.tqsoft.co.il/?mode=insertContent&insertSectionID=144&projectID={$project_id}&investorID={$investor_id}&meetingStart={$starts}&meetingEnd={$ends}&eventID={$event_id}&01MovieName={$title}&jsonResponse=1");
+}
+
+
 class Meeting {
     public $meeting_name = 'Meeting ';
     public $free_time = 0;
@@ -33,7 +68,6 @@ class Scheduler {
     private $started_day_at; // This is the current populating calendars starting datetime
     private $current_time;
     private $current_date;
-    private $api;
     private $latest_time_possible;
     private $start_datetime;
     private $settings = array(
@@ -50,7 +84,7 @@ class Scheduler {
     private $WATCH_CONFLICTS = true;
     private $compressed_twice = false;
 
-    function __construct($investors, $projects, $run_dates, \ms365\Calendar_Meetings_API $api, $settings = array()) {
+    function __construct($investors, $projects, $run_dates, $settings = array()) {
         $this->time_lines = $investors;
         $this->run_dates  = $this->sanitize_dates( $run_dates );
         $this->pad_projects_gte_investors( $projects );
@@ -62,14 +96,13 @@ class Scheduler {
         $this->_projects = $projects;
 
         // Extend the settings with any passed in.
-        $this->settings['meeting_length'] = isset( $settings['meeting_length'] ) && (int) $settings['meeting_length'] > 1 ? ( (int) $settings['meeting_length'] * 60 ) : \Setting\SECONDS_PER_MEETING;
+        $this->settings['meeting_length'] = isset( $settings['meeting_length'] ) && (int) $settings['meeting_length'] > 1 ? ( (int) $settings['meeting_length'] * 60 ) : 600;
         $this->settings['hours']          = isset( $settings['hours'] ) && (int) $settings['hours'] >= 1 ? (int) $settings['hours'] : 8;
         //$this->settings['start_datetime'] = isset($settings['start_datetime']) ? $settings['start_datetime'] : \Setting\START_DATE . ' ' . \Setting\START_TIME;
         $this->settings['start_datetime'] = date( 'Y-m-d H:i', $this->run_dates[0] );
-        $this->settings['breaks']         = isset( $settings['breaks'] ) && is_array( $settings['breaks'] ) ? $settings['breaks'] : unserialize( \Setting\BREAKS );
+        $this->settings['breaks']         = isset( $settings['breaks'] ) && is_array( $settings['breaks'] ) ? $settings['breaks'] : unserialize( \BREAKS );
         $this->settings['cal_id']         = isset( $settings['cal_id'] ) ? $settings['cal_id'] : '';
 
-        $this->api = $api;
         // Some dummy times.
         $this->start_datetime = date( 'Y-m-d H:i:00', $this->run_dates[0] );
 
@@ -133,6 +166,80 @@ class Scheduler {
 
 
     /**
+     * A callback passed in will be called 1 time for each meeting which is generated
+     *
+     * @param string $tq_tag
+     * @return array
+     */
+    function all_event_data( $tq_tag = 0 ) {
+        $this->reset_values();
+        $num_time_lines       = count( $this->time_lines );
+        // This will hold return value
+        $events_array = array();
+
+        for ($row_num = 0; $row_num < $this->_largest_item_stack(); $row_num++) {
+            // TODO: This should be at the end of the loop or you should decriment this first event $this->meeting_length;
+            $start_time = (int)$this->next_time_slot();
+            $end_time = $start_time + (int)$this->settings['meeting_length'];
+
+            $fake_id = 1;
+            for ( $i = 0; $i < $num_time_lines; $i ++ ) {
+                if (!isset($this->time_lines[$i]))
+                    continue;
+
+                $investor = $this->time_lines[$i];
+                if (!isset($investor->items[$row_num]) || $this->_slot_is_empty($investor, $row_num)) {
+                    continue;
+                }
+
+                $project = $investor->items[$row_num];/*
+                if (!is_a($project, '\Project') || !($project->id && $project->id !== 0))
+                    continue;*/
+
+                $event = array(
+                    'id' => $fake_id++,
+                    'title' => "({$investor->id}): {$investor->email} \n ({$project->id}): {$project->project_title}",
+                    'start' => new \DateTime(date('Y-m-d H:i', $start_time)),
+                    'end' => new \DateTime(date('Y-m-d H:i', $end_time)),
+                    'subject' => "{$investor->name} to meet {$project->project_title}",
+                    'project' => $project->id,
+                    'event_id' => \EVENT_ID,
+                    'investor' => $investor->id,
+                    'body' => array(
+                        "ContentType" => "HTML",
+                        "Content" => "{$project->project_title}"),
+                    'location' => \CONVENTION_LOCATION,
+                    'attendees' => array()
+                );
+                // Add Emails from project members
+
+                array_push( $event['attendees'],
+                    array(
+                        'address' => $investor->email,
+                        'name' => "{$investor->name}"
+                    )
+                );
+                if (is_object($project) && is_array($project->contacts)) {
+                    foreach ($project->contacts as $attendee_info) {
+                        array_push($event['attendees'], $attendee_info);
+                    }
+                }
+
+                // Push the completed event to the return array.
+                array_push($events_array, $event);
+
+                if (!!$tq_tag) {
+                    @insert_meeting_tqtag( $event );
+                }
+            }
+        }
+
+
+        return $events_array;
+    }
+
+
+    /**
      * @param null $calendar_name
      * @param int $print
      *
@@ -147,6 +254,7 @@ class Scheduler {
             $calendar_name = \Setting\DEFAULT_CALENDAR_NAME;
         }
         // If calendar was passed null then we should find or make one.
+        /*
         if ( !is_null( $calendar_name ) ) {
             $calendar = $this->api->get_or_create_calendar_id($calendar_name);
         }
@@ -155,16 +263,18 @@ class Scheduler {
         if (is_null($calendar)) {
             throw new \ErrorException("Unable to create or get calendar.");
         }
+        */
 
         // Let's clear out the calendar so we can start over.
         ob_start();
+        $calendar = '';
         if (!defined('\RUNNING_PUSH_DATE') || !\RUNNING_PUSH_DATE) {
             // Set from bottom crazy-settings.php (basically if user says "start at this datetime" then we
             // can't just wipe their whole calendar. If not set or false then we can wipe it all!
-            $this->api->delete_calendar($calendar);
-            $calendar = $this->api->get_or_create_calendar_id($calendar_name);
+            /*$this->api->delete_calendar($calendar);
+            $calendar = $this->api->get_or_create_calendar_id($calendar_name);*/
         } else {
-            $this->api->delete_all_events( $calendar );
+            /*$this->api->delete_all_events( $calendar );*/
         }
         $debug = "<h4>DEBUG</h4>";
         for ($row_num = 0; $row_num < $this->_largest_item_stack(); $row_num++) {
@@ -220,12 +330,16 @@ class Scheduler {
                 }
 
                 // Create the event on the $calendar
-                $resp = $this->api->create_event($event, 1);
+                /*
+                $resp = $this->api->create_event($event, 1);*/
+
+                // Create the event in the TQ-TAG Database
+                send_event_to_tq_tag($start_time, $investor, $project);
 
                 if ($print) {
                     echo "<br><h3>Creating Next Event</h3>";
                     //\Util\print_pre( $event );
-                    \Util\print_pre($resp);
+                    //\Util\print_pre($resp);
                     echo "<hr>";
                 }
             }
@@ -417,7 +531,7 @@ class Scheduler {
      */
     public function compress_meetings() {
         if ($this->timelines_are_empty()) {
-            throw new \ErrorException("Can't compress meetings until sheduling timelines!");
+            return null;
         }
         $this->reset_values();
 

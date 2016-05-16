@@ -2,22 +2,84 @@
 /**
  *  Index for CoPro
  */
+    ini_set('display_errors', 1);
+    ini_set('output_buffering', 1);
+    error_reporting(E_ALL);
+    header("Access-Control-Allow-Origin: *");
+    //header("Content-Type: application/x-www-form-urlencoded; charset=UTF-8");
+    mb_internal_encoding("UTF-8");
+    session_start();
+    require_once 'inc/site-setup.php';
+
+    // Export the results of the form to calendar?
+if (defined('API_EXPORT') && API_EXPORT) {
+    // If this is API then we don't need to create any html. Just build all the data here as json
+    \copro\do_step('schedule_all');
+    \copro\do_step('filter_out_meetings');
+    \copro\do_step('compress_meetings');
+    header('Content-Type: application/json; charset=UTF-8');
+    $all_event_data = \copro\export_meetings_to_json();
+    ob_clean();
+    echo $all_event_data;
+    exit;
+}
+
+    // Import previous results from database to export to calendar
+if (defined('API_IMPORT') && API_IMPORT) {
+    // If this is API then we don't need to create any html. Just build all the data here as json
+    header('Content-Type: application/json; charset=UTF-8');
+    $event_id = !!\Util\post('dates-event-id') ? \Util\post('dates-event-id') : '';
+    $project = !!\Util\post('project') ? \Util\post('project') : null;
+    $investor = !!\Util\post('investor') ? \Util\post('investor') : null;
+    $projects = !!\Util\post('projects') ? \Util\post('projects') : null;
+    $investors = !!\Util\post('investors') ? \Util\post('investors') : null;
+
+    if (!!$investors) {
+        // Filter the meetings by an investor id
+        $all_event_data = \copro\get_all_database_meetings($event_id, array('investors'=>$investors));
+    } elseif (!!$projects) {
+        // Filter the meetings by a project id
+        $all_event_data = \copro\get_all_database_meetings($event_id, array('projects'=>$projects));
+    }
+    elseif (!!$investor) {
+        // Filter the meetings by amany investor id
+        $all_event_data = \copro\get_all_database_meetings($event_id, array('investor'=>$investor));
+    } elseif (!!$project) {
+        // Filter the meetings by many project id
+        $all_event_data = \copro\get_all_database_meetings($event_id, array('project'=>$project));
+    }
+    else {
+        // Get all projets by and event_id
+        $all_event_data = \copro\get_all_database_meetings($event_id);
+    }
+
+    echo json_encode($all_event_data);
+    exit;
+}
+    
+if (defined('FINALIZE') && FINALIZE) {
+    // If this is API then we don't need to create any html. Just build all the data here as json
+    \copro\do_step('schedule_all');
+    \copro\do_step('filter_out_meetings');
+    \copro\do_step('compress_meetings');
+
+    $event_id = \EVENT_ID;
+    $all_event_data = \copro\export_meetings_to_tqtag();
+    ob_clean();
+    header("Location: https://copro.ezadmin3.com/copro.co.il/originals/miker/calendar/index.html?eventid={$event_id}");
+    exit;
+}
 ?><!doctype html>
 <html class="no-js" lang="">
 <head>
     <?php
-    ini_set('display_errors', 1);
-    ini_set('output_buffering', 1);
-    error_reporting(E_ALL);
     define('ROOT_DIR', __DIR__);
-
     require_once( 'templates/html-head.php' );
-    require_once 'inc/site-setup.php';
 
     ?>
 </head>
 <body>
-<div class="inner-body container">
+<div class="inner-body">
     <div class="container">
         <div class="row expanded">
 
@@ -25,6 +87,33 @@
             \Util\show_template( 'nav-header.php' );
             ?>
 
+        </div>
+
+        <div class="row">
+            <!-- Here are the site options -->
+            <div class="col-sm-12 col-md-8">
+
+                <form action="https://copro.ezadmin3.com/copro.co.il/originals/miker/calendar/index.html" method="get" name="event-id-input" class="form" accept-charset="UTF-8">
+
+                    <fieldset>
+                        <!-- Event ID -->
+                        <div class="form-group">
+                            <legend>
+                                <h4>Already started? <small>Enter an EventID</small>:</h4>
+                            </legend>
+                            <label for="eventid">
+                                <input type="text" name="eventid" class="form-control">
+                            </label>
+                        </div>
+
+                    </fieldset>
+                    <button type="submit" class="btn success">Get Meeting Schedule!</button>
+                </form>
+
+            </div>
+
+        </div>
+        <div class="row">
 
             <div class="col-sm-12">
                 <?php
@@ -83,8 +172,7 @@
                                     In the <strong class="text-danger">Filter Out</strong> step the algorithm walks down the time lines of each investor individually checking whether that investor is meant to meet with any given project. This step uses only a projects ID for comparisons. We are left with a schedule with no collisions between projects (still disregarding project member collisions) and investors. The <strong class="text-danger">Filter Out</strong> step <strong class="text-primary"><em> only checks that an investor meets with all projects in her or his interests list.</em></strong> (<em class="text-warning">Hover over an Investors name to view which projects they are interested in to see the list used to filter their time line</em>)
                                 </p>
                             </div>
-
-
+                            
                             <?php
                             /**
                              *  Let's filter our sorted time_lines!

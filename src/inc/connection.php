@@ -35,7 +35,7 @@ class DB {
         $host = self::$host;
         $db_name = self::$db_name;
         try {
-            $conn = new \PDO("mysql:host={$host};dbname={$db_name}", DB_USERNAME, DB_PASSWORD, array(\PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8"));
+            $conn = new \PDO("mysql:host={$host};dbname={$db_name}", DB_USERNAME, DB_PASSWORD, array(\PDO::MYSQL_ATTR_INIT_COMMAND =>"SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci' "));
             $conn->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
             self::$conn = $conn;
         } catch(\PDOException $e) {

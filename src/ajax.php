@@ -23,23 +23,10 @@ if ( is_null( $event_id ) || (mb_strtoupper($_SERVER['REQUEST_METHOD']) != "POST
     exit;
 }
 
-$loggedIn = !is_null( \Util\session( 'access_token' ) ) && !is_null(\Util\session('user_email'));
-define( 'LOGGED_IN', $loggedIn );
-if ($_SERVER['SERVER_NAME'] == '0.0.0.0') {
-    $redirectUri = 'http://localhost:'.$_SERVER['SERVER_PORT'].'/authorize.php';
-    echo "<h4> Set to run on local server.. if you see this message then there is problem</h4>";
-} else {
-    $redirectUri = "https://copro.ezadmin3.com/copro.co.il/originals/miker/dist/authorize.php";
-}
-define( 'REDIRECT_URI', $redirectUri );
-
 /**
  * SETTINGS FOR THE SCHEDULER MEETINGS
  */
 
-require_once 'inc/ms365/oauth.php';
-require_once 'inc/ms365/outlook.php';
-require_once 'inc/ms365/Calendar_Meetings-class.php';
 require_once 'inc/connection.php';
 
 
@@ -107,52 +94,48 @@ class Ajax_Database_Connection {
 
 
 
-
-$auth_url = \ms365\oAuthService::getLoginUrl($redirectUri);
 $res = array('success'=>0, 'data'=>'Not logged in.');
 
-if (LOGGED_IN) {
-    try {
-        $db = new Ajax_Database_Connection( \Connection\get_connection() );
+try {
+    $db = new Ajax_Database_Connection( \Connection\get_connection() );
 
-        $dates = $db->get_dates_by_event_id( $event_id );
-        if (!$dates) {
-            throw new ErrorException("Wasn't able to get the dates from Database.");
-        }
-        $date_array = array();
-        $conflicts = array();
-        foreach($dates as $date) {
-            // Check if we got a date (because query returns random words as dates some cases)
-            if (! preg_match('|^\d{4,}-\d{2,}-\d{2,}|', trim($date->eventDate)) ) {
-                // We should continue if the date doesn't match.. or else we can't have date for conflicts
-                continue;
-            }
-            $temp_date = date('Y-m-d', strtotime($date->eventDate));
-            // TODO: This forces the hour b/c client doesn't want to store hours. Remove this if they change mind
-            array_push($date_array, $temp_date . ' 8:00:00');
-
-            // Now get any conflicts for this date
-            $conflict_res = $db->get_conflicts_by_date_id( $date->dateID );
-            if ( !$conflict_res || !is_array( $conflict_res ) ) {
-                continue;
-            }
-
-            foreach ( $conflict_res as $conflict ) {
-                // If not a valid time then continue to the next conflict
-                if (! preg_match('|\d{1,2}:\d{2,}|', trim($conflict->exceptionEndTime)) || ! preg_match('|\d{1,2}:\d{2}|', trim($conflict->exceptionStartTime)) )
-                    continue;
-                // If it is a valid time then push it to the object.
-                $conflicts[$conflict->exceptionEmail] = array(
-                    'from' => ("{$temp_date} {$conflict->exceptionStartTime}"),
-                    'to' => ("{$temp_date} {$conflict->exceptionEndTime}")
-                );
-            }
-        }
-        sort($date_array);
-        $res = array('success'=>1, 'args' => $event_id, 'data'=>array('dates'=>$date_array, 'conflicts'=>$conflicts));
-    } catch (ErrorException $e) {
-        $res = array('success'=>0, 'data'=>$e->getMessage());
+    $dates = $db->get_dates_by_event_id( $event_id );
+    if (!$dates) {
+        throw new ErrorException("Wasn't able to get the dates from Database.");
     }
+    $date_array = array();
+    $conflicts = array();
+    foreach($dates as $date) {
+        // Check if we got a date (because query returns random words as dates some cases)
+        if (! preg_match('|^\d{4,}-\d{2,}-\d{2,}|', trim($date->eventDate)) ) {
+            // We should continue if the date doesn't match.. or else we can't have date for conflicts
+            continue;
+        }
+        $temp_date = date('Y-m-d', strtotime($date->eventDate));
+        // TODO: This forces the hour b/c client doesn't want to store hours. Remove this if they change mind
+        array_push($date_array, $temp_date . ' 8:00:00');
+
+        // Now get any conflicts for this date
+        $conflict_res = $db->get_conflicts_by_date_id( $date->dateID );
+        if ( !$conflict_res || !is_array( $conflict_res ) ) {
+            continue;
+        }
+
+        foreach ( $conflict_res as $conflict ) {
+            // If not a valid time then continue to the next conflict
+            if (! preg_match('|\d{1,2}:\d{2,}|', trim($conflict->exceptionEndTime)) || ! preg_match('|\d{1,2}:\d{2}|', trim($conflict->exceptionStartTime)) )
+                continue;
+            // If it is a valid time then push it to the object.
+            $conflicts[$conflict->exceptionEmail] = array(
+                'from' => ("{$temp_date} {$conflict->exceptionStartTime}"),
+                'to' => ("{$temp_date} {$conflict->exceptionEndTime}")
+            );
+        }
+    }
+    sort($date_array);
+    $res = array('success'=>1, 'args' => $event_id, 'data'=>array('dates'=>$date_array, 'conflicts'=>$conflicts));
+} catch (ErrorException $e) {
+    $res = array('success'=>0, 'data'=>$e->getMessage());
 }
 
 ob_clean();
