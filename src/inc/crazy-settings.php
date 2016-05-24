@@ -52,7 +52,7 @@ $daily_hours = \Util\post('daily-hours') && (int)\Util\post('daily-hours') >= MI
 $meeting_mins = \Util\post('meeting-length') && (int)\Util\post('meeting-length') >= MIN_MEETING_MINS && (int)\Util\post('meeting-length') <= MAX_MEETING_MINS ? (int)\Util\post('meeting-length') : DEFAULT_MEETING_MINS;
 define('MEETING_MINS', $meeting_mins);
 
-$start_date_val = \Util\post('start-date-dt') ? \Util\post('start-date-dt') : DEFAULT_START_DT;
+$start_date_val = \Util\post('day-1') ? \Util\post('day-1') : DEFAULT_START_DT;
 
 $start_breaks = \Util\post('break-start') && is_array(\Util\post('break-start')) ? \Util\post('break-start') : unserialize(DEFAULT_BREAK_START);
 $end_breaks = \Util\post('break-end') && is_array(\Util\post('break-end')) ? \Util\post('break-end') : unserialize(DEFAULT_BREAK_END);
@@ -69,13 +69,14 @@ $calendar_id = \Util\post('calendar-id') && LOGGED_IN ? \Util\post('calendar-id'
 
 // This is settings for the scheduler
 
+$start_date = \Util\post('day-1') ? strtotime(\Util\post('day-1')) : strtotime('+1 day');
 
 define('SECONDS_PER_MEETING', 600);
-define('START_MONTH', date('m', strtotime('+1 day')) );
-define('START_DAY', date('d', strtotime('+1 day')) );
-define('START_YEAR', date('Y'));
-define('START_TIME', '08:00');
-define('START_DATE', START_YEAR."-".START_MONTH."-".START_DAY);
+define('START_MONTH', date('m', $start_date) );
+define('START_DAY', date('d', $start_date) );
+define('START_YEAR', date('Y', $start_date));
+define('START_TIME', date('H:i', $start_date));
+define('START_DATE', date('Y-M-D H:i', $start_date));
 define('CONVENTION_LOCATION', "Boston, MA");
 define('BREAKS', serialize(
     array(/*
@@ -133,8 +134,9 @@ $day = 1;
 /**  GET RUN DATES -- THIS MIGHT BE DATABASE SOON (in which case move this into MOCK_RUN block above **/
 
 $run_dates = array();
-$first_date = 0;
-while (($day++) < 3 || strtotime( \Util\post("day-{$day}") )) {
+$run_dates_hours = array();
+$day = 1;
+while (!!\Util\post("day-{$day}")) {
     /**
      * While we haven't filled all 3 days into array of dates in schedule
      * or we haven't ran out of dates added in the URL params then push to array.
@@ -142,22 +144,12 @@ while (($day++) < 3 || strtotime( \Util\post("day-{$day}") )) {
      *
      * $day == 1 on first loop-through.
      */
-    if (!$first_date) {
-        $first_date = !!strtotime(\Util\post("start-date-dt")) ?
-            strtotime(\Util\post("start-date-dt")) :
-            strtotime(START_YEAR."-".START_MONTH."-".START_DAY." ".START_TIME);
-        $run_dates[] = $first_date;
-    }
 
-    $run_dates[] = !!strtotime(\Util\post("day-{$day}")) ?
-        strtotime(\Util\post("day-{$day}")) :
-        strtotime("+{$day} day", $first_date);
+    $run_dates[] = strtotime(\Util\post("day-{$day}"));
+    $run_dates_hours[] = !!\Util\post("hours-day-{$day}") ? (int)(\Util\post("hours-day-{$day}")) : \DEFAULT_DAILY_HOURS;
+    $day++;
 }
+
+define('DATES_ARRAY', serialize($run_dates));
+define('DATES_HOURS_ARRAY', serialize($run_dates_hours));
 unset( $first_date );
-
-
-// TODO: THIS IS THE SAME $push_date.. it's for test. The first should == default.
-$push_date = \Util\post('push-date');
-if (\Util\post('calendar-id'))
-    $push_date = \Util\post('push-date');
-define( 'RUNNING_PUSH_DATE', $push_date );

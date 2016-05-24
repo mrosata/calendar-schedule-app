@@ -4,14 +4,8 @@
  */
 namespace copro;
 
-
-function send_event_to_tq_tag($start_time, $investor, $project) {
-    $date = date('Y-m-d H:i', $start_time);
-    $project_id = $project->id;
-    $investor_email = $investor->email;
-    @file_get_contents("http://copro.tqsft.co.il/?mode=insertContent&insertSectionID={$project_id}&title=".urlencode($date)."&shortTitle=".urlencode($investor_email)."&printJson=yes");
-}
-
+$debug_url_calls = array();
+$debug_collisions = '';
 
 /**
  * array(
@@ -23,19 +17,23 @@ function send_event_to_tq_tag($start_time, $investor, $project) {
  * @param $meeting
  */
 function insert_meeting_tqtag( $meeting ) {
-    $event_id = !!\EVENT_ID ? \EVENT_ID : 1234;
-    $project_id = $meeting['project'];
-    $investor_id = $meeting['investor'];
-    $title = urlencode($meeting['title']);
-    $ends = urlencode(is_a( $meeting['end'], '\DateTime') ? $meeting['end']->format('Y-m-d H:i:s') : $meeting['end']);
-    $starts = urlencode(is_a( $meeting['start'], '\DateTime' ) ? $meeting['start']->format('Y-m-d H:i:s') : $meeting['start']);
+    global $debug_url_calls;
+    $event_id = trim($meeting['event_id'] );
+    $project_id = trim($meeting['project'] );
+    $project_name = trim(rawurlencode($meeting['project_name']) );
+    $investor_id = trim($meeting['investor'] );
+    $title = trim(rawurlencode($meeting['title']) );
+    $ends = trim(rawurlencode(is_a( $meeting['end'], '\DateTime') ? $meeting['end']->format('Y-m-d H:i:s') : $meeting['end']) );
+    $starts = trim(rawurlencode(is_a( $meeting['start'], '\DateTime' ) ? $meeting['start']->format('Y-m-d H:i:s') : $meeting['start']) );
 
-    //http://copro.tqsoft.co.il/?mode=insertQuery&insertSectionID=144&projectID=228&investorID=2&meetingStart=2016-05-14+08%3A00%3A00&meetingEnd=2016-05-14+08%3A30%3A00&eventID=&jsonResponse=1
+    $insert_url = "http://copro.tqsoft.co.il/?mode=insertContent&insertSectionID=144&projectID={$project_id}&investorID={$investor_id}&meetingStart={$starts}&meetingEnd={$ends}&eventID={$event_id}&01MovieName={$title}&title={$project_name}&jsonResponse=1";
+    $file_get_contents = @file_get_contents($insert_url);
+    $debug_url_calls[] = array(
+        'URL' => $insert_url,
+        'result' => $file_get_contents
+    );
 
-
-    /*echo "http://copro.tqsoft.co.il/?mode=insertContent&insertSectionID=144&projectID={$project_id}&investorID={$investor_id}&meetingStart={$starts}&meetingEnd={$ends}&eventID={$event_id}&jsonResponse=1";
-    exit;
-    */return @file_get_contents("http://copro.tqsoft.co.il/?mode=insertContent&insertSectionID=144&projectID={$project_id}&investorID={$investor_id}&meetingStart={$starts}&meetingEnd={$ends}&eventID={$event_id}&01MovieName={$title}&jsonResponse=1");
+    return $file_get_contents;
 }
 
 
@@ -60,10 +58,11 @@ class Meeting {
 
 class Scheduler {
 
+    private $last_slot_was_break = false; // Flag to signal when slot might be longer/shorter than $meeting_length
     private $time_lines = array();
     private $run_dates = array();
     private $projects = array();
-    private $next_free_time = 0;
+    private $investors = array();
     public $start_date;
     private $started_day_at; // This is the current populating calendars starting datetime
     private $current_time;
@@ -72,7 +71,6 @@ class Scheduler {
     private $start_datetime;
     private $settings = array(
         'meeting_length' => 600,
-        'hours' => 8,
         'start_datetime' => '',
         'breaks' => array(),
         'cal_id' => ''
@@ -84,26 +82,27 @@ class Scheduler {
     private $WATCH_CONFLICTS = true;
     private $compressed_twice = false;
 
-    function __construct($investors, $projects, $run_dates, $settings = array()) {
+    function __construct($investors, $projects, $run_dates, $settings = array(), $fixed_meetings = array()) {
         $this->time_lines = $investors;
         $this->run_dates  = $this->sanitize_dates( $run_dates );
         $this->pad_projects_gte_investors( $projects );
-
+        // An array matching days to hours in them set in form
         // Store all projects by id on $this->projects.
         foreach ( $projects as $project ) {
             $this->projects[ $project->id ] = $project;
         }
-        $this->_projects = $projects;
+        foreach ( $investors as $investor) {
+            $this->investors[ $investor->id ] = $investor;
+        }
 
         // Extend the settings with any passed in.
         $this->settings['meeting_length'] = isset( $settings['meeting_length'] ) && (int) $settings['meeting_length'] > 1 ? ( (int) $settings['meeting_length'] * 60 ) : 600;
-        $this->settings['hours']          = isset( $settings['hours'] ) && (int) $settings['hours'] >= 1 ? (int) $settings['hours'] : 8;
-        //$this->settings['start_datetime'] = isset($settings['start_datetime']) ? $settings['start_datetime'] : \Setting\START_DATE . ' ' . \Setting\START_TIME;
         $this->settings['start_datetime'] = date( 'Y-m-d H:i', $this->run_dates[0] );
-        $this->settings['breaks']         = isset( $settings['breaks'] ) && is_array( $settings['breaks'] ) ? $settings['breaks'] : unserialize( \BREAKS );
+        $this->settings['breaks'] =       $this->create_breaks_arrays();
         $this->settings['cal_id']         = isset( $settings['cal_id'] ) ? $settings['cal_id'] : '';
 
-        // Some dummy times.
+        \Util\debug($this->settings['breaks']);
+
         $this->start_datetime = date( 'Y-m-d H:i:00', $this->run_dates[0] );
 
         // If this is a reschedule (push date) We must set the push start date
@@ -111,17 +110,24 @@ class Scheduler {
             $this->start_push_date = strtotime(\RUNNING_PUSH_DATE);
         }
 
-        $push_date = strtotime( \RUNNING_PUSH_DATE );
         $this->reset_values();
     }
 
 
+    /**
+     * This isn't really sanitizing dates, it looks like it's just making sure
+     * that there is a start date in the array.
+     *
+     * @param $date_array
+     * @return array
+     */
     private function sanitize_dates($date_array) {
         if (!is_array($date_array) || !isset($date_array[0])) {
             $date_array = array( strtotime( $this->settings['start_datetime'] ) );
         }
         return $date_array;
     }
+
 
     private function reset_values() {
 
@@ -131,10 +137,15 @@ class Scheduler {
         $this->current_date = date( 'Y-m-d', $this->current_time );
 
         // The latest_time_possible is starting time - meeting length + day_length (because meeting can't start after end of day - meeting len).
-        $this->latest_time_possible = strtotime("+{$this->settings['hours']} hour", $this->started_day_at);
-
-        $this->start_new_day = true;
         $this->day = 1;
+        $this->start_new_day = true;
+
+        //$this->latest_time_possible = strtotime("+{$day_index} hour", $this->started_day_at);
+        // Changing this to just be the end of day b/c now the breaks mask the entire day.
+        $this->latest_time_possible = strtotime("+1 day", $this->started_day_at);
+        $this->latest_time_possible = date('Y-m-d 00:00', $this->latest_time_possible);
+        $this->latest_time_possible = strtotime($this->latest_time_possible);
+
     }
 
 
@@ -146,6 +157,7 @@ class Scheduler {
     private function add_extra_day() {
         $index = max(count($this->run_dates) - 1, 0);
         $this->run_dates[] = strtotime('+1 day', $this->run_dates[$index]);
+        $this->settings['breaks'][] = array();
     }
 
     private function goto_next_day () {
@@ -160,7 +172,14 @@ class Scheduler {
         $this->started_day_at = $this->run_dates[$this->day];
         $this->current_time = $this->started_day_at;
         $this->current_date = date( 'Y-m-d', $this->started_day_at );
-        $this->latest_time_possible = strtotime("+{$this->settings['hours']} hour", $this->started_day_at);
+
+
+        //$this->latest_time_possible = strtotime("+{$day_index} hour", $this->started_day_at);
+        $this->latest_time_possible = strtotime("+1 day", $this->started_day_at);
+        $this->latest_time_possible = date('Y-m-d 00:00', $this->latest_time_possible);
+        $this->latest_time_possible = strtotime($this->latest_time_possible);
+
+
         $this->day++;
     }
 
@@ -181,8 +200,8 @@ class Scheduler {
             // TODO: This should be at the end of the loop or you should decriment this first event $this->meeting_length;
             $start_time = (int)$this->next_time_slot();
             $end_time = $start_time + (int)$this->settings['meeting_length'];
+            $event_id = \Util\post('dates-event-id');
 
-            $fake_id = 1;
             for ( $i = 0; $i < $num_time_lines; $i ++ ) {
                 if (!isset($this->time_lines[$i]))
                     continue;
@@ -197,159 +216,32 @@ class Scheduler {
                     continue;*/
 
                 $event = array(
-                    'id' => $fake_id++,
-                    'title' => "({$investor->id}): {$investor->email} \n ({$project->id}): {$project->project_title}",
+                    'project_name' => $project->project_title,
+                    'title' => "({$investor->id}): {$investor->first_name} {$investor->last_name} \n ({$project->id}): {$project->project_title}",
                     'start' => new \DateTime(date('Y-m-d H:i', $start_time)),
                     'end' => new \DateTime(date('Y-m-d H:i', $end_time)),
-                    'subject' => "{$investor->name} to meet {$project->project_title}",
                     'project' => $project->id,
-                    'event_id' => \EVENT_ID,
+                    'event_id' => $event_id,
                     'investor' => $investor->id,
-                    'body' => array(
-                        "ContentType" => "HTML",
-                        "Content" => "{$project->project_title}"),
-                    'location' => \CONVENTION_LOCATION,
-                    'attendees' => array()
                 );
-                // Add Emails from project members
-
-                array_push( $event['attendees'],
-                    array(
-                        'address' => $investor->email,
-                        'name' => "{$investor->name}"
-                    )
-                );
-                if (is_object($project) && is_array($project->contacts)) {
-                    foreach ($project->contacts as $attendee_info) {
-                        array_push($event['attendees'], $attendee_info);
-                    }
-                }
 
                 // Push the completed event to the return array.
                 array_push($events_array, $event);
 
                 if (!!$tq_tag) {
-                    @insert_meeting_tqtag( $event );
+                    insert_meeting_tqtag( $event );
                 }
             }
         }
 
+        // This is for debug the real call to store schedule in tq-tag database.
+        global $debug_url_calls;
+        if (!!$tq_tag) {
+            return $debug_url_calls;
+        }
 
+        // This is for practice runs
         return $events_array;
-    }
-
-
-    /**
-     * @param null $calendar_name
-     * @param int $print
-     *
-     * @return bool
-     * @throws \ErrorException
-     */
-    function export_meetings_to_calendar($calendar_name = null, $print = 0) {
-        $this->reset_values();
-        $num_time_lines       = count( $this->time_lines );
-
-        if (is_null($calendar_name) || !$calendar_name) {
-            $calendar_name = \Setting\DEFAULT_CALENDAR_NAME;
-        }
-        // If calendar was passed null then we should find or make one.
-        /*
-        if ( !is_null( $calendar_name ) ) {
-            $calendar = $this->api->get_or_create_calendar_id($calendar_name);
-        }
-
-        // Check again if the calendar is null
-        if (is_null($calendar)) {
-            throw new \ErrorException("Unable to create or get calendar.");
-        }
-        */
-
-        // Let's clear out the calendar so we can start over.
-        ob_start();
-        $calendar = '';
-        if (!defined('\RUNNING_PUSH_DATE') || !\RUNNING_PUSH_DATE) {
-            // Set from bottom crazy-settings.php (basically if user says "start at this datetime" then we
-            // can't just wipe their whole calendar. If not set or false then we can wipe it all!
-            /*$this->api->delete_calendar($calendar);
-            $calendar = $this->api->get_or_create_calendar_id($calendar_name);*/
-        } else {
-            /*$this->api->delete_all_events( $calendar );*/
-        }
-        $debug = "<h4>DEBUG</h4>";
-        for ($row_num = 0; $row_num < $this->_largest_item_stack(); $row_num++) {
-            $debug .= "<br><code>ROW {$row_num}</code>";
-            // TODO: This should be at the end of the loop or you should decriment this first event $this->meeting_length;
-            $start_time = (int)$this->next_time_slot();
-            $end_time = $start_time + (int)$this->settings['meeting_length'];
-
-            for ( $i = 0; $i < $num_time_lines; $i ++ ) {
-                $debug .= "<br>---<code>TIME LINE: {$i}</code>";
-                if (!isset($this->time_lines[$i]))
-                    continue;
-
-                $investor = $this->time_lines[$i];
-                if (!isset($investor->items[$row_num]) || $this->_slot_is_empty($investor, $row_num)) {
-                    $debug .= "<br>------ EMPTY!";
-                    continue;
-                }
-
-                $project = $investor->items[$row_num];/*
-                if (!is_a($project, '\Project') || !($project->id && $project->id !== 0))
-                    continue;*/
-
-                $event = array(
-                    'start' => new \DateTime(date('Y-m-d H:i', $start_time)),
-                    'end' => new \DateTime(date('Y-m-d H:i', $end_time)),
-                    'subject' => "{$investor->name} to meet {$project->project_title}",
-                    'body' => array(
-                        "ContentType" => "HTML",
-                        "Content" => "@@[I={$investor->id}&P={$project->id}]@@"),
-                    'location' => \CONVENTION_LOCATION,
-                    'attendees' => array(),
-                    'id' => $calendar
-                );
-                // Add Emails from project members
-
-                if (defined('\SEND_EMAILS') && \SEND_EMAILS) {
-                    /**
-                     * Only add these events if the setting 'attendees' is set (checkbox).
-                     */
-                    array_push( $event['attendees'],
-                        array(
-                            'address' => $investor->email,
-                            'name' => "{$investor->name}"
-                        )
-                    );
-
-                    if (is_object($project) && is_array($project->contacts)) {
-                        foreach ($project->contacts as $attendee_info) {
-                            array_push($event['attendees'], $attendee_info);
-                        }
-                    }
-                }
-
-                // Create the event on the $calendar
-                /*
-                $resp = $this->api->create_event($event, 1);*/
-
-                // Create the event in the TQ-TAG Database
-                send_event_to_tq_tag($start_time, $investor, $project);
-
-                if ($print) {
-                    echo "<br><h3>Creating Next Event</h3>";
-                    //\Util\print_pre( $event );
-                    //\Util\print_pre($resp);
-                    echo "<hr>";
-                }
-            }
-            ob_flush();
-            flush();
-        }
-        if (defined('DEBUG_EVENTS') && DEBUG_EVENTS) {
-            echo $debug;
-        }
-
     }
 
 
@@ -390,14 +282,15 @@ class Scheduler {
             }
 
             if ($this->start_new_day) {
-                $current_day = date( 'm/d/Y', $schedule_time );
-                $ret .= "<tr class='info'><td colspan='{$col_span}'><h3>NEW DAY <small class='secondary'>{$current_day}</small></h3></td></tr>";
+                $current_day = date( 'Y-m-d', $schedule_time );
+                $ret .= "<tr class='info'><td colspan='{$col_span}'><h3>NEW DAY {$this->day} <small class='secondary'>{$current_day}</small></h3></td></tr>";
                 $this->start_new_day = false;
             }
 
             $schedule_time = date('H:i a', $schedule_time);
             $ret .= "<tr>";
             $ret .= "<td class='time-slot'><strong>{$schedule_time}</strong></td>";
+
             for ( $i = 0; $i < $num_time_lines; $i ++ ) {
                 if (isset($this->time_lines[$i]->items[$row_num]) && is_a($this->time_lines[$i]->items[$row_num], 'Project'))
                     $ret .= "<td>{$this->time_lines[$i]->items[$row_num]->tooltip()}</td>";
@@ -422,34 +315,52 @@ class Scheduler {
      */
     public function next_time_slot($return_null_if_conflict = false) {
         $meeting_length = (int)$this->settings['meeting_length'];
-        // Get time slot first (or else start time wouldn't be used).
+        // Get time and put it into $starting_at before updating current time to the next slot.
         $starting_at = $this->current_time;
         $this->current_time = $this->current_time + $meeting_length;
 
-        // If it's too late to start another meeting then go into the next day
+        // This is sort of monkey patch to stop 11pm -> 1am events (this is when new days start).
+        $the_hour = (int)date('H', $starting_at);
+        /// 1.
+        if ($the_hour > 22 || $the_hour < 1 ) {
+            // This is midnight, so we can't have a meeting now.
+            return $this->next_time_slot($return_null_if_conflict);
+        }
 
+        /// 2.
+        // If it's too late to start another meeting then go into the next day
         if ($starting_at + (int)$this->settings['meeting_length'] > ($this->latest_time_possible)) {
             $this->goto_next_day();
             return $this->next_time_slot($return_null_if_conflict);
         }
 
+        /// 3.
         // If we are rescheduling "Push Date"ing. Then we can't start schedule til push date is past.
         if ( $this->start_push_date && $starting_at < $this->start_push_date) {
             return $this->next_time_slot();
         }
-        // Make sure not interfering with any breaks.
-        foreach($this->settings['breaks'] as $break) {
-            $ending_at = $starting_at + (int)$this->settings['meeting_length'];
 
-            $break_start = strtotime( $this->current_date . " " . $break['start']);
-            $break_end = strtotime( $this->current_date . " " . $break['end']);
-            //echo "{$starting_at} --- {$ending_at}  --->>> BREAKSTART = {$break_start} <<-->> BREAKEND {$break_end}<br><br>";
-            // if meeting starts during break ($starting_at >= $break_start && $starting_at < $break_end)
-            // or meeting ends during break  ($ending_at > $break_start && $ending_at < $break_end)
-            if (($starting_at >= $break_start && $starting_at < $break_end) || ($ending_at > $break_start && $ending_at < $break_end)) {
-                if ($return_null_if_conflict)
-                    return array('time' => $starting_at, 'conflict' => ' BREAK TIME ');
-                return $this->next_time_slot();
+
+        /// 4. [Run through all the breaks
+        if (isset($this->settings['breaks'][$this->day])) {
+            // Make sure not interfering with any breaks.
+            foreach($this->settings['breaks'][$this->day] as $break) {
+
+                $ending_at = $starting_at + (int)$this->settings['meeting_length'];
+
+                $break_start = strtotime( $this->current_date . " " . $break['start']);
+                $break_end = strtotime( $this->current_date . " " . $break['end']);
+
+
+                \Util\debug("{$starting_at} --- {$ending_at}  --->>> BREAKSTART = {$break_start} <<-->> BREAKEND {$break_end}<br><br>");
+                // if meeting starts during break ($starting_at >= $break_start && $starting_at < $break_end)
+                // or meeting ends during break  ($ending_at > $break_start && $ending_at < $break_end)
+                if (($starting_at >= $break_start && $starting_at < $break_end) || ($ending_at > $break_start && $ending_at < $break_end)) {
+                    if ($return_null_if_conflict)
+                        return array('time' => $starting_at, 'conflict' => ' BREAK TIME ');
+
+                    return $this->next_time_slot();
+                }
             }
         }
         // Return $stating at not $this->current_time because then we'd be 1 meeting in the future.
@@ -697,6 +608,10 @@ class Scheduler {
                 ($starting_at >= $collision_start && $starting_at < $collision_end)
                 || ($ending_at > $collision_start && $ending_at < $collision_end) ) {
 
+                // Also, we need to check if this collision is a fixed meeting collision.
+                if (isset($collision['fixed']) && !!$collision['fixed']) {
+                    // This is not an exception. It's a fixed meeting. So we still return true.
+                }
                 $start = date('Y-m-d H:i', $collision_start);
                 $end = date('H:i', $collision_end);
                 return true;
@@ -719,25 +634,23 @@ class Scheduler {
      * @return bool
      */
     private function _has_collision_in($pid, $compare_with, $only_id = 1) {
+        global $debug_collisions;
         $is_colliding_with_comparators = in_array($pid, $compare_with);
-// If collision by id or we only care about collision by id.
+        // If collision by id or we only care about collision by id.
         if ($is_colliding_with_comparators || $only_id) {
-// return if $pid in $compare_with
+            // return if $pid in $compare_with
             return $is_colliding_with_comparators;
         }
         $test_project = $this->projects[$pid];
 
         foreach ($compare_with as $compare_id) {
-            $compare_to = $this->projects[$compare_id];
+            $compare_to = $this->projects[(int)$compare_id];
 
-// TODO: REMOVE THIS IN PRODUCTION
-            if (count(array_intersect($compare_to->emails, $test_project->emails))) {
-                if (defined('SHOW_EMAIL_COLLISIONS') && !!SHOW_EMAIL_COLLISIONS) {
-                    global $collisions;
-// If email-collisions is set show the collisions
-                    $collisions .= "<div class='col-sm-6 col-md-4 col-lg-3'><p> &nbsp; &nbsp; <strong>project:</strong> {$test_project->tooltip()} collides with: {$compare_to->tooltip()}</p></div>";
-                }
-
+            $common_emails = array_intersect($compare_to->emails, $test_project->emails);
+            if (count($common_emails)) {
+                // TODO: REMOVE THIS IN PRODUCTION
+                $email_list = implode(', ', $common_emails);
+                $debug_collisions .= "<br><strong>COLLISION: </strong><code>[ID: {$compare_to->id}] & [ID: {$test_project->id}]</code><small>{$email_list}</small>";
                 return true;
             }
         }
@@ -812,5 +725,37 @@ class Scheduler {
         $empty->id = 0;
         $projects = array_pad($projects, $investor_count, $empty);
         return $projects;
+    }
+
+    private function create_breaks_arrays()
+    {
+        $parsed_breaks = array();
+        $len = count($this->run_dates) + 1;
+        for ($i = 0; $i < $len; $i++) {
+            $day_num = $i;
+            $parsed_breaks[$i] = array();
+            $breaks = !!\Util\post("breaks-day-{$day_num}") ? \Util\post("breaks-day-{$day_num}") : '';
+            \Util\debug($breaks);
+            if ($breaks !== '') {
+                // There are breaks
+                $breaks_input = explode(',', $breaks);
+                foreach ($breaks_input as $break_string) {
+                    $next_break = explode("-", $break_string);
+                    if (count($next_break) === 2) {
+                        // This will look like
+                        /*array(array(
+                            start => 09:00
+                            end => 10:00
+                        ), ...)*/
+                        $next_break_settings = array();
+                        $next_break_settings['start'] = $next_break[0];
+                        $next_break_settings['end'] = $next_break[1];
+                        array_push($parsed_breaks[$day_num], $next_break_settings);
+                    }
+                }
+            }
+        }
+
+        return $parsed_breaks;
     }
 }

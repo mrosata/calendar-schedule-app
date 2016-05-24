@@ -37,7 +37,7 @@ class Ajax_Database_Connection {
     private $queries = array(
         'exceptions' => 'select id as exceptionID,exceptionEmail,exceptionStartTime,exceptionEndTime, (select title as eventDate from tbladminssections where parentID = :event_id limit 1) as eventDate from tblcontentitemsapprvoed inner join tblcontentitemsextensionapproved on tblcontentitemsapprvoed.itemID=tblcontentitemsextensionapproved.itemID where sectionID= :section_id',
 
-        'dates-by-event' => 'select id AS dateID, title as eventDate from tbladminssections where parentID = :event_id',
+        'dates-by-event' => 'select id AS dateID, title as eventDate, content as eventBreaks from tbladminssections where parentID = :event_id',
 
         'conflict-times' => 'select id as exceptionID, exceptionEmail, exceptionStartTime, exceptionEndTime from tblcontentitemsapprvoed inner join tblcontentitemsextensionapproved on tblcontentitemsapprvoed.itemID = tblcontentitemsextensionapproved.itemID where sectionID = :section_id'
     );
@@ -105,6 +105,9 @@ try {
     }
     $date_array = array();
     $conflicts = array();
+    $breaks = array();
+    // date map for breaks is used so after we sort dates we can still match them to correct breaks
+    $date_map_for_breaks = array();
     foreach($dates as $date) {
         // Check if we got a date (because query returns random words as dates some cases)
         if (! preg_match('|^\d{4,}-\d{2,}-\d{2,}|', trim($date->eventDate)) ) {
@@ -113,27 +116,35 @@ try {
         }
         $temp_date = date('Y-m-d', strtotime($date->eventDate));
         // TODO: This forces the hour b/c client doesn't want to store hours. Remove this if they change mind
-        array_push($date_array, $temp_date . ' 8:00:00');
+        array_push($date_array, $temp_date . ' 00:00:00');
 
+        $date_map_for_breaks[$temp_date . ' 00:00:00'] = str_replace("\n", ',', $date->eventBreaks);
         // Now get any conflicts for this date
         $conflict_res = $db->get_conflicts_by_date_id( $date->dateID );
         if ( !$conflict_res || !is_array( $conflict_res ) ) {
             continue;
-        }
 
+        }
         foreach ( $conflict_res as $conflict ) {
             // If not a valid time then continue to the next conflict
             if (! preg_match('|\d{1,2}:\d{2,}|', trim($conflict->exceptionEndTime)) || ! preg_match('|\d{1,2}:\d{2}|', trim($conflict->exceptionStartTime)) )
                 continue;
             // If it is a valid time then push it to the object.
-            $conflicts[$conflict->exceptionEmail] = array(
+            if (!isset($conflicts[$conflict->exceptionEmail]) || !is_array($conflicts[$conflict->exceptionEmail])) {
+                $conflicts[$conflict->exceptionEmail] = array();
+            }
+            array_push($conflicts[$conflict->exceptionEmail], array(
                 'from' => ("{$temp_date} {$conflict->exceptionStartTime}"),
                 'to' => ("{$temp_date} {$conflict->exceptionEndTime}")
-            );
+            ));
         }
     }
     sort($date_array);
-    $res = array('success'=>1, 'args' => $event_id, 'data'=>array('dates'=>$date_array, 'conflicts'=>$conflicts));
+    foreach ($date_array as $date) {
+        // create breaks array in same order as sorted dates.
+        array_push($breaks, $date_map_for_breaks[$date]);
+    }
+    $res = array('success'=>1, 'args' => $event_id, 'data'=>array('dates'=>$date_array, 'conflicts'=>$conflicts, 'breaks' => $breaks));
 } catch (ErrorException $e) {
     $res = array('success'=>0, 'data'=>$e->getMessage());
 }

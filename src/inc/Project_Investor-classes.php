@@ -3,6 +3,8 @@
  * Created by michael on 2/22/16.
  */
 
+// This is debug tab text.
+$debug_exceptions = '';
 // This is how project model will look
 $project_model = array(
     'project_title' => 'movie_title',
@@ -42,12 +44,47 @@ $investor_model = array(
 $conflicts = array();
 if ( !!\Util\post( 'conflicts' ) ) {
     try {
-        $conflicts = json_decode(\Util\post( 'conflicts' ), 1);
+        // If conflicts-from-javascript then use json, else use PHP unserialize
+        $conflicts = !!\Util\post('conflicts-from-javascript') ? json_decode(\Util\post( 'conflicts' ), 1) : json_decode(base64_decode(\Util\post('conflicts')), 1);
     }
     catch (\ErrorException $e) {
         $conflicts = array();
     }
 }
+
+/**
+ * Check if email is in the exceptions list and then return any times as
+ * collisions array(to=>'', from=>'');
+ *
+ * @param $email
+ * @return array
+ */
+function fetch_all_collisions($email) {
+    global $conflicts;
+    $exceptions_array = array();
+
+    if (isset($conflicts[$email]) && is_array($conflicts[$email])) {
+
+        // There are collisions for this email address.
+        $conflicts_array = $conflicts[$email];
+        foreach($conflicts_array as $conflict) {
+
+            // We need to add the conflict to the project
+            $exceptions_array[] = array(
+                'from' => strtotime($conflict['from']),
+                'to' => strtotime($conflict['to'])
+            );
+
+            /*$from = date('Y-m-d H:i', (int)$conflict['from']);
+            $to = date('Y-m-d H:i', (int)$conflict['to']);
+            echo "<br><strong>added a conflict investor {$this->id}</strong>: <code>{$email}</code> @ {$from} - {$to}";*/
+
+        }
+    }
+    return $exceptions_array;
+}
+
+
 
 class ListArray {
     public $items = array();
@@ -120,25 +157,64 @@ class Investor extends ListArray {
 
 
     function create_conflict() {
+
+        global $debug_exceptions;
+        if (!$this->email) {
+            return;
+        }
+        $exceptions = fetch_all_collisions($this->email);
+        $i = 0;
+        $deb = '';
+        foreach($exceptions as $exception) {
+            if (!is_array($exception))
+                continue;
+            $i++;
+            $this->add_collision($exception);
+
+            // This part is for debug collisions tab
+            $debug_exception = array(
+                'from' => date('Y-m-d H:i', $exception['from']),
+                'to' => date('Y-m-d H:i', $exception['to']),
+            );
+            $deb.=\Util\print_pre($debug_exception, 1);
+
+        }
+        \Util\debug( "<strong>The INVESTOR ID: {$this->id} has {$i} collisions -- [{$this->email}]</strong><br>" );
+
+
+        if ($i > 0) {
+            $debug_exceptions.= "<h6>INVESTOR: {$this->last_name}, {$this->first_name} <small> ID: {$this->id}</small></h6>";
+            $debug_exceptions.= "<code>[{$this->email}]</code>";
+            $debug_exceptions.= "<code>[{$this->email}]</code>";
+            $debug_exceptions.= $deb;
+        }
+
+        /*
         global $conflicts;
         if (!count($conflicts)) {
             return null;
         }
 
-        foreach ($conflicts as $email => $conflict) {
-            if (!!$email && $email == $this->email) {
-                // We need to add the conflict to the project
-
-                $this->add_collision(array(
-                    'from' => strtotime($conflict['from']),
-                    'to' => strtotime($conflict['to'])
-                ));
-
-                /*$from = date('Y-m-d H:i', (int)$conflict['from']);
-                $to = date('Y-m-d H:i', (int)$conflict['to']);
-                echo "<br><strong>added a conflict investor {$this->id}</strong>: <code>{$email}</code> @ {$from} - {$to}";*/
+        foreach ($conflicts as $email => $conflicts_array) {
+            if (!is_array($conflicts_array)) {
+                continue;
             }
-        }
+            foreach($conflicts_array as $conflict) {
+
+                if (!!$email && $email == $this->email) {
+                    // We need to add the conflict to the project
+
+                    $this->add_collision(array(
+                        'from' => strtotime($conflict['from']),
+                        'to' => strtotime($conflict['to'])
+                    ));
+
+                    $from = date('Y-m-d H:i', (int)$conflict['from']);
+                    $to = date('Y-m-d H:i', (int)$conflict['to']);
+                    echo "<br><strong>added a conflict investor {$this->id}</strong>: <code>{$email}</code> @ {$from} - {$to}";
+                }
+            }
+        }*/
     }
 
     /**
@@ -287,31 +363,51 @@ class Project {
      * @return null
      */
     function create_conflict() {
-        global $conflicts;
-        if (!count($conflicts)) {
-            return null;
+        global $debug_exceptions;
+        $a = array();$b = array();
+        if (!!$this->producer->email) {
+            $a = fetch_all_collisions($this->producer->email);
+        }
+        if (!!$this->director->email) {
+            $b = fetch_all_collisions($this->director->email);
         }
 
-        foreach ($conflicts as $email => $conflict) {
-            if (!!$email && ($email == $this->producer_email || $email == $this->director_email)) {
-                // We need to add the conflict to the project
-
-                $this->add_collision(array(
-                    'from' => strtotime($conflict['from']),
-                    'to' => strtotime($conflict['to'])
-                ));
-
-            }
+        $c = array_merge($a, $b);
+        $i = 0;
+        $deb = '';
+        foreach($c as $exception) {
+            if (!is_array($exception))
+                continue;
+            $this->add_collision( $exception );
+            $i++;
+            $debug_exception = array(
+                'from' => date('Y-m-d H:i', $exception['from']),
+                'to' => date('Y-m-d H:i', $exception['to']),
+            );
+            $deb.=\Util\print_pre($debug_exception, 1);
         }
+        if ($i > 0) {
+            $debug_exceptions.= "<h6>PROJECT: {$this->project_title} <small> ID: {$this->id}</small></h6>";
+            $debug_exceptions.= "<code>[{$this->producer->email}, {$this->director->email}]</code>";
+            $debug_exceptions.= $deb;
+        }
+
+        \Util\debug("<strong>The PROJECT ID: {$this->id} has {$i} collisions [{$this->producer->email}, {$this->director->email}]</strong><br>");
+
     }
     /**
      * // TODO: Write a check to make sure that timedate is real time?
      * @param $collision
+     * // fixed might be an object (not sure yet). If so it would be a meeting.
+     * @param $fixed  - Should this be a fixed meeting (not a regular exclusion but probably from push-date)
      *
      * @return bool|int
      */
-    public function add_collision($collision) {
+    public function add_collision($collision, $fixed=0) {
         if (is_array($collision) && isset($collision['from']) && isset($collision['to'])) {
+            if (!$fixed) {
+                $collision['fixed'] = $fixed; // Could be object
+            }
             return array_push( $this->collisions, $collision );
         }
         return false;

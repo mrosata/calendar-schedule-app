@@ -27,7 +27,7 @@ if (\Util\post('queryrun')) {
         $pdo = \Connection\get_connection();
         $db = new \copro\Investor_Project_PHP_Handler( $pdo );
 
-        $results = $db->prep_statement($query_name, $query_args_array);
+        $results = $db->prep_statement($query_name, array(), $query_args_array);
 
         $ret['success'] = !!$results;
         $ret['results'] = json_encode($results);

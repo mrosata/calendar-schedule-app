@@ -115,6 +115,11 @@ input[name=mock-run]:checked + .mock-run-form-part {
     border-color: #2E6DA4;
     color:#fff;
 }
+.nav-tabs>li.debug>a {
+    background-color: #FF9800;
+    border-color: #FFC107;
+    color:#fff;
+}
 
 /* active tab color */
 .nav-tabs>li.active>a, .nav-tabs>li.active>a:hover, .nav-tabs>li.active>a:focus {

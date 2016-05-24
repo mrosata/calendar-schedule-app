@@ -3,8 +3,8 @@
  *  Index for CoPro
  */
     ini_set('display_errors', 1);
-    ini_set('output_buffering', 1);
     error_reporting(E_ALL);
+    ini_set('output_buffering', 1);
     header("Access-Control-Allow-Origin: *");
     //header("Content-Type: application/x-www-form-urlencoded; charset=UTF-8");
     mb_internal_encoding("UTF-8");
@@ -65,6 +65,7 @@ if (defined('FINALIZE') && FINALIZE) {
 
     $event_id = \EVENT_ID;
     $all_event_data = \copro\export_meetings_to_tqtag();
+    
     ob_clean();
     header("Location: https://copro.ezadmin3.com/copro.co.il/originals/miker/calendar/index.html?eventid={$event_id}");
     exit;
@@ -135,11 +136,8 @@ if (defined('FINALIZE') && FINALIZE) {
                         <li role="presentation" class="active"><a href="#step1" aria-controls="step 1" role="tab" data-toggle="tab">STEP 1: ROLL OUT!</a></li>
                         <li role="presentation"><a href="#step2" aria-controls="step 2" role="tab" data-toggle="tab">STEP 2: FILTER/MAP</a></li>
                         <li role="presentation"><a href="#step3" aria-controls="step 3" role="tab" data-toggle="tab">STEP 3: COMPRESS</a></li>
-                        <li role="presentation"><a href="#collisions" aria-controls="step 3" role="tab" data-toggle="tab">AVOIDED COLLISIONS</a></li>
-                        <?php if (!!\Util\post('calendar-id')): // CALENDAR OUTLOOK CREATE REAL EVENTS !!! ?>
-                            <li role="presentation"><a href="#outlook-events" aria-controls="Create Events" role="tab" data-toggle="tab">OUTLOOK EVENTS</a></li>
-                        <?php endif ?>
-
+                        <li role="presentation" class="debug"><a href="#debug-exceptions" aria-controls="debug-exceptions" role="tab" data-toggle="tab">DUBUG: EXCEPTIONS</a></li>
+                        <li role="presentation" class="debug"><a href="#debug-collisions" aria-controls="debug-collisions" role="tab" data-toggle="tab">DUBUG: COLLISIONS</a></li>
                     </ul>
 
                     <div class="tab-content">
@@ -202,66 +200,48 @@ if (defined('FINALIZE') && FINALIZE) {
                             ?>
                         </div>
 
-                        <div role="tabpanel" class="tab-pane fade" id="collisions">
-                            <div class="row">
-                                <div class="col-sm-12">
-                                    <h2>Avoided: <small>Crew conflicts spotted via Email-collision</small></h2>
-                                </div>
 
-                                <div class='col-sm-12'>
-
-                                    <p>
-                                        These are all scheduling conflicts that arise when 2 projects scheduled for the same time slot are comprised of one or more of the same people. <strong class="text-danger">Step 3</strong> took care of these collisions when compressing, this tab just shows the collisions between different projects and their members which would have made trouble in the schedule. So if the director of project 10 had also been a producer of project 13 then those 2 projects would not be able to meet in the same time slot. This is determined by the usage of email addresses since the members of a project don't all have user-ids with the website running algorithm. The list below shows collisions that have been handled.
-                                    </p>
-                                </div>
-                                <br>
-
-                                <div class="col-sm-12">
-                                    <p>
-                                        <strong class='label label-danger'>Prevented Email Collision:</strong>
-                                    </p>
-                                    <br>
-                                </div>
-                                <br>
-
-                                <?= $collisions ?>
+                        <!-- Exceptions Debug -->
+                        <div role="tabpanel" class="tab-pane fade" id="debug-exceptions">
+                            <div class="col-sm-12">
+                                <h2>Debug: <small>Exceptions</small></h2>
                             </div>
+
+                            <div class="col-sm-12">
+                                <p>
+
+                                </p>
+                            </div>
+                            <br>
+                            <?php global $debug_exceptions; ?>
+                            <?php echo $debug_exceptions; ?>
                         </div>
 
-                        <?php if (!!\Util\post('calendar-id') || !!\Util\post('export-calendar') == 'on'): // CALENDAR OUTLOOK CREATE REAL EVENTS !!! ?>
-                        <div role="tabpanel" class="tab-pane fade" id="outlook-events">
-                            <div class="row">
-                                <div class="col-sm-12">
-                                    <h2>OUTLOOK CALENDAR: <small>Results from calls to create these meetings in outlook</small></h2>
-                                </div>
-                                <div class="col-sm-12">
-                                    <p>
-                                        This is the result of actually making the API calls to add every event here to my outlook calendar.
-                                    </p>
-                                    <p>
-                                        <strong class='label label-danger'>Prevented Email Collision:</strong>
-                                    </p>
-                                    <br>
-                                </div>
-                                <br>
-                                <div class="col-sm-12">
-                                    <?php
-                                    if (\Util\session('export_calendar')) {
-                                        $create_all_resp = \copro\export_meetings_to_outlook();
 
-                                    }
-                                    \Util\session('export_calendar', null);
-                                    ?>
-                                </div>
-                                <br>
+                        <!-- Debug collisions -->
+                        <div role="tabpanel" class="tab-pane fade" id="debug-collisions">
+                            <div class="col-sm-12">
+                                <h2>Debug: <small>Collisions</small></h2>
                             </div>
+
+                            <div class="col-sm-12">
+                                <p>
+
+                                </p>
+                            </div>
+                            <br>
+                            <?php global $debug_collisions; ?>
+                            <?php echo $debug_collisions; ?>
                         </div>
 
-                        <?php endif; ?>
+
                     </div> <!-- .tabbed-content -->
 
 
-                </div>  <!-- .algorithm-tabs-container -->
+                </div> <!-- .tabbed-content -->
+
+
+            </div>  <!-- .algorithm-tabs-container -->
             </div>  <!-- .col-sm-12 -->
         </div>
 

@@ -15,9 +15,8 @@ function build_schedule_controls_form() {
     $email_pool_val = \Util\post('email-pool') && (int)\Util\post('email-pool') >= 10 && (int)\Util\post('email-pool') <= 1000 ? (int)\Util\post('email-pool') : 100;
     $daily_hours = \Util\post('daily-hours') && (int)\Util\post('daily-hours') >= MIN_DAILY_HOURS && (int)\Util\post('daily-hours') <= MAX_DAILY_HOURS ? (int)\Util\post('daily-hours') : DEFAULT_DAILY_HOURS;
     $meeting_mins = \Util\post('meeting-length') && (int)\Util\post('meeting-length') >= MIN_MEETING_MINS && (int)\Util\post('meeting-length') <= MAX_MEETING_MINS ? (int)\Util\post('meeting-length') : DEFAULT_MEETING_MINS;
-    $start_date_val = \Util\post('start-date-dt') ? \Util\post('start-date-dt') : DEFAULT_START_DT;
-    $date_day_2 = \Util\post('day-2') ? \Util\post('day-2') : '';
-    $date_day_3 = \Util\post('day-3') ? \Util\post('day-3') : '';
+
+    $dynamic_dates = generate_datepickers_and_breaks();
     $push_date = \Util\post('push-date') ? \Util\post('push-date') : '';
 
     $start_breaks = \Util\post('break-start') && is_array(\Util\post('break-start')) ? \Util\post('break-start') : unserialize(DEFAULT_BREAK_START);
@@ -37,33 +36,8 @@ function build_schedule_controls_form() {
         : '';
 
 
-    $conflicts = \Util\post('conflicts') ? \Util\post('conflicts') : '';
     $dates_event_id = \Util\post('dates-event-id') ? (int)\Util\post('dates-event-id') : '';
-
-    // Build a list of conflicts for the client to be able to see that we arre taking that into consideration.
-    $display_conflicts = "";
-    if ( !!\Util\post( 'conflicts' )) {
-
-        try {
-            $text_conflicts = json_decode(\Util\post( 'conflicts' ), 1);
-            if (is_array($text_conflicts) && count($text_conflicts)) {
-                $display_conflicts = "<div class='row panel'><div class='panel panel-heading'>Watching for conflicts:</div><div class='panel panel-body'>";
-                foreach ($text_conflicts as $email => $conflict) {
-                    $from = $conflict['from'];
-                    $to = $conflict['to'];
-
-                    //echo "<div class='col-sm-6'><strong>{$email}</strong></div><div class='col-sm-3'><code> {$from} </code></div><div class='col-sm-3'><code> {$to} </code></div>";
-                }
-                $display_conflicts .= "</div></div>";
-
-                $conflicts = json_encode( $conflicts );
-            }
-
-        }
-        catch (\ErrorException $e) {
-
-        }
-    }
+    $conflicts = !!\Util\post('conflicts') && !!\Util\post('conflicts-from-javascript') ? base64_encode(\Util\post('conflicts')) : \Util\post('conflicts');
 
     $mock_content_form = <<<DOCSTRING
                     <form action="index.php" method="post" name="config">
@@ -148,58 +122,16 @@ function build_schedule_controls_form() {
 
                                         </div>
 
-                                        <div class="form-group col-md-6 col-lg-4">
-                                            <div class="form-group calendar-form-group">
-                                                <label for="start-date-dt" style="height:4rem;">Pick a start date (This will be the first day and time for the 3 day event).</label>
-                                                <div class='input-group date' id='start-date-dt'>
-                                                    <input type='text' class="form-control" name="start-date-dt" value="{$start_date_val}" />
-                                                    <span class="input-group-addon">
-                                                        <span class="glyphicon glyphicon-calendar"></span>
-                                                    </span>
-                                                </div>
-                                            </div>
+                                        <div id="dynamic-dates">
+                                        
+                                        <!-- When the user gets dates by entering an eventID. The number of dates is unknown and so is 
+                                            added in here. Generated above in the PHP and handled by JavaScript for the datepicke -->
+                                         {$dynamic_dates}
+                                        
                                         </div>
-
-                                        <div class="form-group col-md-6 col-lg-4">
-                                            <div class="form-group calendar-form-group">
-                                                <label for="start-date-dt" style="height:4rem;">Day 2:</label>
-                                                <div class='input-group date' id='day-2'>
-                                                    <input type='text' class="form-control" name="day-2" value="{$date_day_2}" />
-                                                    <span class="input-group-addon">
-                                                        <span class="glyphicon glyphicon-calendar"></span>
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="form-group col-md-6 col-lg-4">
-                                            <div class="form-group calendar-form-group">
-                                                <label for="start-date-dt" style="height:4rem;">Day 3:<br></label>
-                                                <div class='input-group date' id='day-3'>
-                                                    <input type='text' class="form-control" name="day-3" value="{$date_day_3}" />
-                                                    <span class="input-group-addon">
-                                                        <span class="glyphicon glyphicon-calendar"></span>
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
+                                        
                                     </div>
 
-
-                                    <div class="form-group">
-                                        <div class="conflicts-group">
-                                            {$display_conflicts}
-                                        </div>
-                                    </div>
-
-
-                                    <div class="form-group">
-                                        <label>Breaks</label>
-
-                                        {$break_time_inputs}
-
-                                        <span class="btn btn-info add-new-break"><i class='glyphicon glyphicon-plus'> </i> Add Break</span>
-                                    </div>
 
                                     <div class="form-group">
                                         <label for="section-id">Comma separated SectionIDs to use in project search: (example: 87,88,89)
@@ -213,6 +145,7 @@ function build_schedule_controls_form() {
                                     </div>
 
 
+
                                     <div class="form-group calendar-form-group">
                                         <label for="push-date" style="height:4rem;">Push DateTime (start from a time after events :<br></label>
                                         <div class='input-group date' id='push-date'>
@@ -222,6 +155,7 @@ function build_schedule_controls_form() {
                                             </span>
                                         </div>
                                     </div>
+
 
 
                                     <div class="form-group" style="border: 1px #555 solid;border-radius:4px">
@@ -255,24 +189,60 @@ DOCSTRING;
     return $mock_content_form;
 }
 
-/*
+/**
+ * Create the string used to build the part of the form that has datepickers with all the dates for
+ * an event to be held along with the times of breaks (The break mask). Called Break Mask because it
+ * is a list of time intervals which tell us all hours of day when event isn't happening.
  *
-
-                                    <div class="form-group">
-                                        <label for="attendees">Send emails to attendees? (uncheck while testing)
-                                            <input type="checkbox" name="attendees" class="form-control checkbox checkbox-md">
-                                        </label>
-                                    </div>
-
-
-                                    <div class="form-group">
-                                        <label for="export-calendar">Export Events to Calendar? (EXPORT TO OUTLOOK)
-                                            <input type="checkbox" name="export-calendar" class="form-control checkbox checkbox-md">
-                                        </label>
-                                    </div>
-
+ * @return string
  */
+function generate_datepickers_and_breaks() {
 
+    $day_number = 1;
+    $dynamic_dates = '';
+
+    $look_for_another_date = true;
+    while ($look_for_another_date) {
+
+        $next_date = \Util\post("day-{$day_number}");
+        // If $next_date wasn't null or undefined then there could be another date as well
+        // So that's why this loop is here so we keep looking for post values until we
+        // come up empty handed.
+        $look_for_another_date = !!$next_date;
+
+        if ($look_for_another_date) {
+            // This replaces the long time HH:mm:ssmm.... with HH:mm
+            $next_date = str_replace('~(.*\s\d{2}:\d{2}):.*$~', '$1', $next_date);
+            // This replace entire time with nothing (the new way!(
+            //$next_date = str_replace('~(.*\s\d{2}:\d{2}):.*$~', '$1', $next_date);
+
+            $dynamic_breaks = '';
+            if (!!\Util\post("breaks-day-{$day_number}")) {
+                // There is also breaks involved
+                $breaks = \Util\post("breaks-day-{$day_number}");
+                // Remove trailing "," or ",,"
+                $breaks = trim($breaks, ',');
+
+                $dynamic_breaks = "Breaks:<br><input type='text' value='{$breaks}' name='breaks-day-{$day_number}' class='input form-control'>";
+            }
+            $dynamic_dates .= "<div class='form-group col-md-6 col-lg-4'>
+            <div class='form-group calendar-form-group'>
+                <label for='day-1' style='height:4rem;'>Day {$day_number}:</label>
+                <div class='input-group date' id='day-{$day_number}'>
+                    <input type='text' class='form-control' name='day-{$day_number}' value='{$next_date}' />
+                    <span class='input-group-addon'>
+                        <span class='glyphicon glyphicon-calendar'></span>
+                    </span>
+                </div>
+            </div>
+            {$dynamic_breaks}
+        </div>";
+            $day_number++;
+        }
+    }
+
+    return $dynamic_dates;
+}
 echo build_schedule_controls_form();
 
 /* This will echo out the form */

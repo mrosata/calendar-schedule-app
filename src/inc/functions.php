@@ -10,34 +10,48 @@ require_once 'connection.php';
 require_once 'Project_Database_Interface-class.php';
 
 
+// TODO: THIS IS THE SAME $push_date.. it's for test. The first should == default.
+$running_push_date = !!\Util\post('push-date') ? \Util\post('push-date') : false;
+define( 'RUNNING_PUSH_DATE', $running_push_date );
+
+
 global $run_dates; // from crazy-settings
+global $run_dates_hours; // from crazy-settings
 global $projects;
 global $investors;
 global $all_investors;
 global $all_projects;
 
-// RUNNING_PUSH_DATE set at the bottom of crazy-settings.php
+$fixed_meetings = array();
+$ignore_meetings = array();
 $push_date_investors = array();
-
-$collisions = '';
 if (! MOCK_RUN) {
     $pdo = \Connection\get_connection();
     $db = new Investor_Project_PHP_Handler($pdo);
-    
-    
+    if (RUNNING_PUSH_DATE) {
+        // Only do this if we have a push date
+        require_once 'push-date-functionality.php';
+    }
+
     // STEP 1 // Get products and build projects class.
     $section_id_array = \QUERY_VALUE_SECTION_ID ? unserialize(\QUERY_VALUE_SECTION_ID) : array();
-    if ($section_id_array > 0) {
+
+    if (array($section_id_array) > 0) {
+        \Util\debug("<br><strong>About to do 'STEP 1 // Load projects using section ids.'</strong>");
+        // STEP 1 // Load projects using section ids.
         $projects = $db->load_projects($section_id_array);
 
+        \Util\debug("<br><strong>About to do 'STEP 2 // Get interested investor ids list'</strong>");
         // STEP 2 // Get interested investor ids list.
         $db->build_investor_list_from_projects();
 
+        \Util\debug("<br><strong>About to do 'STEP 3 // Get investors and build investors class.'</strong>");
         // STEP 3 // Get investors and build investors class.
         $db->instantiate_investor_objects();
 
+        \Util\debug("<br><strong>About to do 'STEP 4 // Go through projects foreach and push ids.'</strong>");
         // STEP 4 // Go through projects foreach and push ids.
-        $db->add_project_references_to_investors();
+        $db->add_project_references_to_investors($ignore_meetings);
 
 
         // STEP 5 // Use these in the application like we did with mock data objects.
@@ -94,7 +108,10 @@ if (! MOCK_RUN) {
 
 unset( $projects );
 unset( $investors );
-$shed = new Scheduler($all_investors, $all_projects, $run_dates, unserialize(SCHEDULE_SETTINGS) );
+
+$run_dates = defined( '\DATES_ARRAY') ? unserialize(\DATES_ARRAY ) : array();
+$run_dates_hours = defined( '\DATES_HOURS_ARRAY') ? unserialize(\DATES_HOURS_ARRAY ) : array();
+$shed = new Scheduler($all_investors, $all_projects, $run_dates, unserialize(SCHEDULE_SETTINGS), $fixed_meetings );
 
 
 
@@ -110,11 +127,6 @@ function do_step($step_method, $return_table=0) {
     throw new \ErrorException("That is not a valid step.. Steps must be methods on the Scheduler class.");
 }
 
-
-function export_meetings_to_outlook() {
-    global $shed;
-    return $shed->export_meetings_to_calendar(\Util\post('calendar-id'), 0);
-}
 
 function export_meetings_to_json() {
     global $shed;
@@ -135,5 +147,17 @@ function export_meetings_to_tqtag() {
     $db->delete_all_meetings( \EVENT_ID );
     // Add meetings using TQ-Tag url function as callback to Sheduler::all_event_data()
     $all_event_data = $shed->all_event_data( 1 );
+    if (is_array($all_event_data) && count($all_event_data) && isset($all_event_data[0]['URL'])) {
+        // Debugging!
+        $event_id = \EVENT_ID;
+        $cal_link = "http://copro.ezadmin3.com/copro.co.il/originals/miker/calendar/index.html?eventid={$event_id}";
+        echo "<H1>DEBUG -- These Are Now In Database...</H1>";
+        echo "<h3>Time to goto calendar! Only stay here for debugging.</h3>";
+        echo "<h5><a href='{$cal_link}'>Calendar Link</a></h5>";
+        echo "<hr><br><br>";
+        \Util\print_pre($all_event_data);
+        exit;
+    }
+
     return $all_event_data;
 }

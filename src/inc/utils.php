@@ -16,7 +16,9 @@ function be_array(&$item = '') {
 }
 
 function print_pre($res, $return_only = 0) {
-    $rv = "<pre>";$rv.=print_r($res, 1);$rv.="</pre>";
+    $rv = "<pre>";
+    $rv.=print_r($res, 1);
+    $rv.="</pre>";
     if ( !$return_only ) {
         echo $rv;
     }
@@ -41,6 +43,19 @@ function post($index) {
 }
 function server($index) {
     return Utils::get_index_from( $_SERVER, $index );
+}
+
+/**
+ * Print a debug message if debug messages are one via get param
+ * @param $msg_or_obj
+ */
+function debug($msg_or_obj) {
+    if ((defined('DEV_DEBUG') && DEV_DEBUG) || !!get('devbug') || !!post('devbug')) {
+        if (is_string($msg_or_obj))
+            echo $msg_or_obj;
+        else
+            print_pre($msg_or_obj);
+    }
 }
 
 function open( $tag='div', $class='', $id = '' ) {
