@@ -208,8 +208,7 @@ class Availability_Time_Manager
             $start = Times_Utils::x_to_format($this->current_time, 'Y-m-d H:i');
             $end = Times_Utils::x_to_format($this->current_time + Config::$meeting_length, 'Y-m-d H:i');
         }
-        Config::add_output("<div class='sched-temp' style='width: 500px;'>{$meeting_name}</div>");
-        
+
         if (Config::$finalize) {
             $meeting = array(
                 'end' => $end,
@@ -231,6 +230,13 @@ class Availability_Time_Manager
             } else {
                 // Some output for debug or information, this meeting should already be on schedule.
                 Config::add_output( "(Already on calendar): {$meeting_name}" );
+            }
+        } else {
+            if ($send_to_calendar) {
+                //<div class='sched-temp' style='width: 500px;'>
+                Config::add_output("<dl class='dl dl-horizontal horizontal'><dt>{$start}</dt><dd>{$meeting_name}</dd></dl>");
+            } else {
+                Config::add_output("<dl class='dl dl-horizontal horizontal'><dt>(ALREADY ON CALENDAR)</dt><dd>{$start} - {$meeting_name}</dd></dl>");
             }
         }
     }

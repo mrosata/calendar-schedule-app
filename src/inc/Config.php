@@ -22,6 +22,8 @@ class Config
     // OVERFLOW TIME IS TIME TO ADVANCE WHEN IN OVERFLOW
     // (So there is a gap between real meetings)
     static $OVERFLOW_TIME = 108000;
+    static $honor_pinned_meetings;
+    static $activate_push_date;
     static $push_date;
     static $event_id;
     static $section_ids;
@@ -60,6 +62,8 @@ class Config
      */
     static function parse_form() {
         self::$push_date  = self::get_push_date();
+        self::$honor_pinned_meetings = self::get_honor_pinned_meetings();
+        self::$activate_push_date = self::get_activate_push_date();
         self::$event_id = (int)self::get_event_id();
         self::$section_ids = self::get_section_ids();
         self::$running_dates = self::get_events_running_dates();
@@ -81,6 +85,25 @@ class Config
     static function get_meeting_length() {
         return !!\Util\post( 'meeting-length' ) ? (int)\Util\post( 'meeting-length' ) * 60 : 1200;
     }
+
+    /**
+     * Get the flag for checkbox 'honor-pinned-meetings'
+     *
+     * @return bool
+     */
+    static function get_honor_pinned_meetings() {
+        return !!\Util\post( 'honor-pinned-meetings' );
+    }
+
+    /**
+     * Get the flag for checkbox 'activate-push-date'
+     *
+     * @return bool
+     */
+    static function get_activate_push_date() {
+        return !!\Util\post( 'activate-push-date' );
+    }
+
     /**
      * Return the raw form push-date value if set.
      * @return null
@@ -95,7 +118,7 @@ class Config
      * @return null
      */
     static function get_event_id() {
-        return \Util\post('dates-event-id');
+        return  !!\Util\post('calendar-id') ? \Util\post('calendar-id') : \Util\post('dates-event-id');
     }
 
     /**
@@ -107,7 +130,7 @@ class Config
     }
 
     static function get_finalize_value() {
-        return ! !\Util\post( 'finalize' );
+        return !!\Util\post( 'finalize' );
     }
     /**
      * Get Array of Section ID integers from form
@@ -208,7 +231,9 @@ class Config
      *   starts: DateTime
      *   ends: DateTime
      * )
+     *
      * @param $meeting
+     * @return string
      */
     static function insert_meeting_tqtag( $meeting ) {
         global $debug_url_calls;

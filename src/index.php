@@ -23,6 +23,11 @@
     ?>
 </head>
 <body>
+<div class="loading-animation">
+    <!-- Holds the loading animation -->
+    <div class="item"></div>
+    <div class="item"></div>
+</div>
 <div class="inner-body">
     <div class="container">
         <div class="row expanded">

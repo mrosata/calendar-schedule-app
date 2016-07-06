@@ -7,6 +7,63 @@ define('MIN_MEETING_MINS', 5);
 define('DEFAULT_MEETING_MINS', 20);
 define('MAX_MEETING_MINS', 200);
 
+
+function create_forms_confirmation_modal() {
+    $modal = '';
+    $modal .= "
+    <!-- Modal -->
+    <div class='modal fade' id='confirm-submission' tabindex='-1' role='dialog' aria-labelledby='modal-label'>
+        <div class='modal-dialog' role='document'>
+            <div class='modal-content'>
+                <div class='modal-header'>
+                    <button type='button' class='close' data-dismiss='modal' aria-label='Close'><span aria-hidden='true'>&times;</span></button>
+                    <h4 class='modal-title' id='modal-label'>Beginning Overwrite!</h4>
+                </div>
+                <div class='modal-body'>
+                    <div class='push-date-active hidden'>
+                        <span class='danger label'>Push Date Active</span>: Only meetings already put on
+                        <span data-form-value='calendar'>calendar</span> after 
+                        <span data-form-value='push-date'>the push date</span> will be replaced. Every meetings before 
+                        <span data-form-value='push-date'>the push date</span> will stay on the calendar.
+                        
+                        <div class='honor-pinned-meetings hidden'>
+                            <span class='danger label'>Pinned Meetings</span>: Will not be overwritten
+                        </div>
+                        
+                        <div class='not-honor-pinned-meetings hidden'>
+                            <span class='danger label'>Pinned Meetings</span>: Will be overwritten if after push date
+                        </div>
+                    </div>
+                    <div class='push-date-inactive hidden'>
+                        <div class='honor-pinned-meetings hidden'>
+                            
+                            <span class='danger label'>Starting Over</span>: Every single meeting scheduled on
+                            <span data-form-value='calendar'>calendar</span> will be erased except for the pinned meetings 
+                            which are already on the form.
+                            <span class='danger label'>Pinned Meetings</span>: Will not be overwritten
+                        </div>
+                        
+                        <div class='not-honor-pinned-meetings hidden'>
+                        
+                            <span class='danger label'>Starting Over</span>: Every single meeting scheduled on
+                            <span data-form-value='calendar'>calendar</span> will be erased!<br><br>
+                            <span class='danger label'>Pinned Meetings</span>: Will be overwritten as well
+                        </div>
+                    </div>
+                </div>
+                <div class='modal-footer'>
+                    <button type='button' class='btn btn-default' data-dismiss='modal'>Cancel</button>
+                    <button type='button' class='btn btn-primary' data-run-form='true'>Continue with Write</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    ";
+
+    return $modal;
+}
+
+
 // The form
 function build_schedule_controls_form() {
     $section_id_num = (\Util\post('section-id'));
@@ -14,11 +71,23 @@ function build_schedule_controls_form() {
     $meeting_mins = \Util\post('meeting-length') && (int)\Util\post('meeting-length') >= MIN_MEETING_MINS && (int)\Util\post('meeting-length') <= MAX_MEETING_MINS ? (int)\Util\post('meeting-length') : DEFAULT_MEETING_MINS;
 
     $dynamic_dates = generate_datepickers_and_breaks();
-    $push_date = \Util\post('push-date') ? \Util\post('push-date') : '';
+    $push_date = !!\Util\post('push-date') ? \Util\post('push-date') : '';
+    if ( $_SERVER[ 'REQUEST_METHOD' ] !== 'POST' && !$push_date ) {
+        // Set default push date as today.
+        $push_date = date('Y-m-d 00:00');
+    }
 
+    // Dates event id is the id # to use to get dates from database
     $dates_event_id = \Util\post('dates-event-id') ? (int)\Util\post('dates-event-id') : '';
-    $conflicts = !!\Util\post('conflicts') && !!\Util\post('conflicts-from-javascript') ? base64_encode(\Util\post('conflicts')) : \Util\post('conflicts');
+    // Calendar id is the id # to store meetings under and to use to get right JavaScript calendar (drag and drop page).
+    $calendar_id = \Util\post('calendar-id') ? (int)\Util\post('calendar-id') : $dates_event_id;
 
+    $conflicts = !!\Util\post('conflicts') && !!\Util\post('conflicts-from-javascript') ? base64_encode(\Util\post('conflicts')) : \Util\post('conflicts');
+    
+    /// Should active-push-date checkbox be checked?
+    $honor_pinned_meetings = !!\Util\post( 'honor-pinned-meetings' ) ? 'checked="checked"' : '';
+    $activate_push_date_checked = !!\Util\post( 'activate-push-date' ) ? 'checked="checked"' : '';
+    
     $finalize_checkbox = '';
     if (!$section_id_num || !$dynamic_dates || !$dates_event_id) {
         // Form is ready
@@ -34,8 +103,11 @@ function build_schedule_controls_form() {
                                           <input type=\"checkbox\" name=\"finalize\" class=\"form-control checkbox checkbox-md\">
                                       </label>
                                   </legend>
+                                  <p>If this is the restart of an event or calendar, please check this box and leave the push date blank to ensure you get a completely rescheduled calendar.</p>
                               </div>";
     }
+
+    $bootstrap_confirmation_modal = create_forms_confirmation_modal();
 
     $hide_instructions = !!\Util\post('hide-instructions') ? 'checked="checked"' : '';
     $mock_content_form = <<<DOCSTRING
@@ -75,7 +147,7 @@ function build_schedule_controls_form() {
 
 
                                        <!-- EVENT ID Input -->
-                                        <label for="dates-event-id">Generate schedule for Copro EventID (This will remove and rebuild any meetings equal to eventID):
+                                        <label for="dates-event-id">Generate schedule for Copro EventID (This is ID to get dates from):
                                             <input type="text" class="form-control" name="dates-event-id" id="dates-event-id" value="{$dates_event_id}">
                                         </label>
 
@@ -85,6 +157,13 @@ function build_schedule_controls_form() {
                                                    default="2,142,88,89,83,85,86,87" placeholder="2,142,88,89,83,85,86,87" required>
                                         </label>
                                     
+                                       <!-- CALENDAR ID Input -->
+                                        <label for="calendar-id">Pick a number to use as ID of calendar to work with (leave blank to use Event ID above '{$dates_event_id}'):
+                                            <input type="text" name="calendar-id" value="{$calendar_id}" class="form-control input-md" 
+                                                   default="{$calendar_id}" placeholder="ID of Calendar (to store meetings in) eg: {$calendar_id}00}" required>
+                                        </label>
+                                    
+                                   
                                     </div>
 
 
@@ -113,7 +192,10 @@ function build_schedule_controls_form() {
 
 
                                     <div class="form-group calendar-form-group">
-                                        <label for="push-date" style="height:4rem;">Push DateTime (start from a time after events :<br></label>
+                                        <label for="push-date" style="height:4rem;">Push DateTime (setting this will ignore meetings on calendar before this time and also "pinned" meetings):<br></label>
+                                        <p><small>NOTE: If Push Date isn't empty then it will leave any meetings already on calendar before that date and time..
+                                                also setting push date will make sure NOT to overwrite "pinned" events. You *MUST* leave this field empty 
+                                                to generate the first draft of a calendar!</small></p>
                                         <div class='input-group date' id='push-date'>
                                             <input type='text' class="form-control" name="push-date" value="{$push_date}" />
                                             <span class="input-group-addon">
@@ -121,7 +203,36 @@ function build_schedule_controls_form() {
                                             </span>
                                         </div>
                                     </div>
-
+                                    
+                                    <div class="form-group">
+                                        <div class="row">
+                                            <div class="col-sm-6 col-md-4">
+                                                <label for="activate-push-date" data-toggle="tooltip" data-placement="top" 
+                                                title="This checkbox will activate the push date which means any meetings already 
+                                                       on the calendar BEFORE that date will remain exactly where they are.">
+                                                       Turn Push Date On
+                                                    <input type="checkbox" class="checkbox form-control" name="activate-push-date" {$activate_push_date_checked}>
+                                                </label>
+                                            </div>
+                                            
+                                            <div class="col-sm-6 col-md-4">
+                                                <label for="honor-pinned-meetings" 
+                                                data-toggle="tooltip" 
+                                                data-placement="top" 
+                                                title="If 'Honor Pinned Meetings' is checked any meeting that displays as 
+                                                       pinned on the calendar (moved over clicked by human) will remain
+                                                       exactly where they are.">
+                                                        Honor Pinned Meetings
+                                                    <input type="checkbox" class="checkbox form-control" name="honor-pinned-meetings" {$honor_pinned_meetings}>
+                                                </label>
+                                            </div>
+                                            
+                                            
+                                            <div class="col-sm-6 col-md-4">
+                                                <span class="btn btn-warning" id="clear-push-date">CLEAR PUSH DATE</span>                                    
+                                            </div>
+                                        </div>
+                                    </div>
 
 
                                     {$finalize_checkbox}
@@ -130,8 +241,10 @@ function build_schedule_controls_form() {
 
                                         <div class="form-group">
                                             <input type="hidden" name="conflicts" id="conflicts" value="{$conflicts}" />
-
+                                            
+                                            <!-- Button trigger modal -->
                                             <button class="btn btn-success" type="submit">Run it!</button>
+                                            
                                             <a class="btn btn-danger float-right" href="/index.php?">Restart Entire Form</a>
                                         </div>
                                     </div>
@@ -139,10 +252,15 @@ function build_schedule_controls_form() {
                                 </div>
                             </div>
                         </div>
+                        
+                        
                     </form>
+                
                     <hr>
                     <br>
                     <br>
+                    
+                        {$bootstrap_confirmation_modal}
 DOCSTRING;
 
 

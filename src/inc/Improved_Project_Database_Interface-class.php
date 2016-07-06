@@ -15,6 +15,7 @@ class Improved_Database_Queries {
         // Top 2 are for push dates
         'meetings_before' => "SELECT itemID as id, eventID as event_id, investorID as investor, projectID as project, meetingStart as start, meetingEnd as `end` FROM `tblcontentitemsextension` JOIN tblcontentitems ON tblcontentitemsextension.itemID=tblcontentitems.id WHERE tblcontentitems.sectionID = 144 AND tblcontentitemsextension.eventID = :event_id AND tblcontentitemsextension.meetingStart < :push_datetime",
         'meetings_fixed_after' => "SELECT itemID as id, eventID as event_id, investorID as investor, projectID as project, meetingStart as start, meetingEnd as `end` FROM `tblcontentitemsextension` JOIN tblcontentitems ON tblcontentitemsextension.itemID=tblcontentitems.id WHERE tblcontentitems.sectionID = 144 AND tblcontentitemsextension.eventID = :event_id AND tblcontentitemsextension.meetingStart >= :push_datetime AND tblcontentitemsextension.meetingLocked = 1",
+        'meetings_fixed' => "SELECT itemID as id, eventID as event_id, investorID as investor, projectID as project, meetingStart as start, meetingEnd as `end` FROM `tblcontentitemsextension` JOIN tblcontentitems ON tblcontentitemsextension.itemID=tblcontentitems.id WHERE tblcontentitems.sectionID = 144 AND tblcontentitemsextension.eventID = :event_id AND tblcontentitemsextension.meetingLocked = 1",
 
         'all_meetings' => "SELECT meetingLocked as locked, itemID as id, eventID as event_id, title as movie_title, 01MovieName as meeting_title, investorID as investor, projectID as project, meetingStart as start, meetingEnd as `end` FROM `tblcontentitemsextension` JOIN tblcontentitems ON tblcontentitemsextension.itemID=tblcontentitems.id WHERE tblcontentitems.sectionID = 144",
         'event_meetings' => "SELECT meetingLocked as locked, itemID as id, eventID as event_id, title as movie_title, 01MovieName as meeting_title, investorID as investor, projectID as project, meetingStart as start, meetingEnd as `end` FROM `tblcontentitemsextension` JOIN tblcontentitems ON tblcontentitemsextension.itemID=tblcontentitems.id WHERE tblcontentitems.sectionID = 144 AND tblcontentitemsextension.eventID = :event_id",
@@ -263,14 +264,16 @@ class Investor_Project_PHP_Handler extends Project_Improved_Database_Interface {
             return;
         }
 
-        if (!!Config::$push_date) {
-            $push_date = Config::$push_date;
+        if (Config::$honor_pinned_meetings || Config::$activate_push_date) {
+            $push_date = Config::$push_date && Config::$activate_push_date ? Config::$push_date : '0000-00-00 00:00';
+            $pinned_meeting_query = Config::$honor_pinned_meetings ? ' AND (meetingLocked != 1 or meetingLocked IS NULL) ' : '';
+
             // only delete the ones that are not locked
-            $this->query("DELETE FROM tblcontentitemsapprvoed WHERE  itemID IN (SELECT itemID FROM tblcontentitemsextensionapproved WHERE eventID = {$event_id} AND (meetingLocked != 1 or meetingLocked IS NULL AND meetingStart >= '{$push_date}'))");
-            $this->query("DELETE FROM tblcontentitems WHERE  id IN (SELECT itemID FROM tblcontentitemsextensionapproved WHERE eventID = {$event_id} AND (meetingLocked != 1 or meetingLocked IS NULL AND meetingStart >= '{$push_date}'))");
-            $this->query("DELETE FROM tblcontentitemsversions WHERE  itemID IN (SELECT itemID FROM tblcontentitemsextensionapproved WHERE eventID = {$event_id} AND (meetingLocked != 1 or meetingLocked IS NULL AND meetingStart >= '{$push_date}'))");
-            $this->query("DELETE FROM tblcontentitemsextension WHERE eventID = {$event_id} AND (meetingLocked != 1 or meetingLocked IS NULL AND meetingStart >= '{$push_date}')");
-            $this->query("DELETE FROM tblcontentitemsextensionapproved WHERE eventID = {$event_id} AND (meetingLocked != 1 or meetingLocked IS NULL AND meetingStart >= '{$push_date}')");
+            $this->query("DELETE FROM tblcontentitemsapprvoed WHERE  itemID IN (SELECT itemID FROM tblcontentitemsextensionapproved WHERE eventID = {$event_id} {$pinned_meeting_query} AND meetingStart >= '{$push_date}')");
+            $this->query("DELETE FROM tblcontentitems WHERE  id IN (SELECT itemID FROM tblcontentitemsextensionapproved WHERE eventID = {$event_id}  {$pinned_meeting_query} AND meetingStart >= '{$push_date}')");
+            $this->query("DELETE FROM tblcontentitemsversions WHERE  itemID IN (SELECT itemID FROM tblcontentitemsextensionapproved WHERE eventID = {$event_id} {$pinned_meeting_query} AND meetingStart >= '{$push_date}')");
+            $this->query("DELETE FROM tblcontentitemsextension WHERE eventID = {$event_id} {$pinned_meeting_query} AND meetingStart >= '{$push_date}'");
+            $this->query("DELETE FROM tblcontentitemsextensionapproved WHERE eventID = {$event_id} {$pinned_meeting_query} AND meetingStart >= '{$push_date}'");
             return;
         }
 
@@ -385,7 +388,7 @@ class Investor_Project_PHP_Handler extends Project_Improved_Database_Interface {
 
     /**
      * Add exceptions which don't get set by client, rather they are set by calendar when client
-     * drag and drop meetings. (This is for push date).
+     * drag and drop meetings. (This is for push date and for honoring pinned).
      *
      * @param $fixed_exceptions
      */
@@ -483,13 +486,13 @@ class Investor_Project_PHP_Handler extends Project_Improved_Database_Interface {
         );
         return $this->prep_statement('meetings_before', $params);
     }
+    
 
-    function get_fixed_meetings($event_id, $datetime) {
+    function get_fixed_meetings($event_id) {
         $params = array(
-            'push_datetime' => $datetime,
             'event_id' => $event_id
         );
-        return $this->prep_statement('meetings_fixed_after', $params);
+        return $this->prep_statement('meetings_fixed', $params);
     }
 
 

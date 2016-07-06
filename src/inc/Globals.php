@@ -42,7 +42,8 @@ class Globals
         // Import previous results from database to export to calendar
         // If this is API then we don't need to create any html. Just build all the data here as json
         header('Content-Type: application/json; charset=UTF-8');
-        $event_id = !!\Util\post('dates-event-id') ? \Util\post('dates-event-id') : '';
+        $event_id = !!\Util\post('calendar-id') ? \Util\post('calendar-id') : \Util\post('dates-event-id');
+
         $project = !!\Util\post('project') ? \Util\post('project') : null;
         $investor = !!\Util\post('investor') ? \Util\post('investor') : null;
         $projects = !!\Util\post('projects') ? \Util\post('projects') : null;
@@ -85,8 +86,10 @@ class Globals
         $db = self::$db;
 
         // STEP 4 // Go through projects which are to be fixed or ignored and take them from the investors.
-        if ( Config::$push_date) {
-            self::$fixed_meetings = $db->get_fixed_meetings(Config::$event_id, Config::$push_date);
+        if ( Config::$honor_pinned_meetings) {
+            self::$fixed_meetings = $db->get_fixed_meetings( Config::$event_id );
+        }
+        if ( Config::$activate_push_date) {
             self::$ignored_meetings = $db->get_meetings_before(Config::$event_id, Config::$push_date);
         }
 

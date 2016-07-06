@@ -14,12 +14,15 @@ jQuery(function ($) {
             explicitMode: true
         },
         $datetimepickers = [],
-        timepickerOpts = {sideBySide: true, showMeridian: false, defaultTime: '8:00'};
+        timepickerOpts = {sideBySide: true, showMeridian: false, defaultTime: '00:00'};
 
     $datetimepickers._0 = $('#day-1').datetimepicker({format: datetimeFormat});
     $datetimepickers._0.datetimepicker('options', timepickerOpts);
 
-    $datetimepickers.pushDate = $('#push-date').datetimepicker({format: datetimeFormat});
+    $datetimepickers.pushDate = $('#push-date').datetimepicker({
+        format: datetimeFormat,
+        defaultDate: $('input[name=push-date]').val()
+    });
     $datetimepickers.pushDate.datetimepicker('options', timepickerOpts);
 
     let i = 2;
@@ -40,8 +43,20 @@ jQuery(function ($) {
 
 
 
-    var $inputEventId = $('#dates-event-id');
-    var $getDatesBtn = $('#get-dates-by-event');
+    let $inputEventId = $('#dates-event-id');
+    let $getDatesBtn = $('#get-dates-by-event');
+    let $clearPushDateBtn = $('#clear-push-date');
+
+    console.log('%cCopro %cShedule%c Algorithm!%c...\n\n', 'color:red;font-size:34px',
+        'color:blue;font-size:30px', 'color:green;font-size:25px',
+        'color:pink;font-style:italic;font-size:16px');
+    if ($clearPushDateBtn.length) {
+        $clearPushDateBtn.on('click', function(evt){
+            evt.preventDefault();
+            console.log('clearing push date');
+            $('[name=push-date]').val('');
+        });
+    }
 
 
     function lookupEventDatesAndBreakMask (evt) {
@@ -132,7 +147,7 @@ jQuery(function ($) {
         });
     }
 
-    
+
     $getDatesBtn.on('click', lookupEventDatesAndBreakMask);
 
     if ($getDatesBtn.length && $inputEventId.length) {
@@ -182,6 +197,79 @@ jQuery(function ($) {
             setupAllTimePickers();
         }
     });
+
+    function createModalOnForm() {
+        let $modal = $('#confirm-submission');
+        let $form = $('form[name="config"]');
+
+        if (!$form.length || !$modal.length) {
+            console.error('Missing either form or modal on page!');
+            return;
+        }
+        // If activate-push-date is checked we turn submit button into regular button so it will show
+        // the modal on click.
+
+
+        $form
+            .find('button[type="submit"]')
+            .on('click', function (evt) {
+                const activatePushDateChecked = $('[name="activate-push-date"]', $form).is(':checked');
+                const honorPinnedChecked = $('[name="honor-pinned-meetings"]', $form).is(':checked');
+                const overwriteFinalizeChecked = $('input[name="finalize"]').length && $('input[name="finalize"]').is(':checked');
+                const calendarId = $('input[name="calendar-id"]').val();
+                if (!overwriteFinalizeChecked) {
+                    console.log('%cform %cwas %csubmitted!',
+                        'font-style:italic;font-weight:bold;font-size:40px;color:green', 'font-size:25px;color:blue', 'font-size:30px;color:red' );
+
+                    // submit form it is dry run.
+                    $form.submit();
+                    return true;
+                }
+                evt.preventDefault();
+
+
+                // This will show the data on the modal custom to the form!
+                $modal.on('shown.bs.modal', function () {
+                    $('.push-date-active').toggleClass('hidden', !activatePushDateChecked );
+                    $('.push-date-inactive').toggleClass('hidden', activatePushDateChecked );
+                    $('.honor-pinned-meetings').toggleClass('hidden', !honorPinnedChecked );
+                    $('.not-honor-pinned-meetings').toggleClass('hidden', honorPinnedChecked );
+                    $('span[data-form-value="push-date"]').text($('input[name="push-date"]').val());
+                    $('span[data-form-value="calendar"]').html(`<a href="https://copro.ezadmin3.com/copro.co.il/originals/miker/calendar/index.html?eventid=${calendarId}" target="_blank">Calendar ${calendarId}</a>`);
+                    $modal.off('shown.bs.modal');
+                });
+
+                console.log('%cSHOWING %cCONFIRMATION %cMODAL!!!',
+                    'font-style:italic;font-weight:bold;font-size:40px;color:green', 'font-size:25px;color:blue', 'font-size:30px;color:red' );
+
+                $modal.modal('show');
+
+                $('button[data-run-form="true"]', $modal)
+                    .one('click', function() {
+                        $modal.modal('hide');
+
+                        const $loadingAnime = $('.loading-animation');
+                        if ($loadingAnime.length) {
+                            $loadingAnime.css({
+                                display: 'block',
+                                width: '100%',
+                                height: '100000000%',
+                                position: 'absolute',
+                                top: '0',
+                                bottom: '0',
+                                right: '0',
+                                left: '0'
+                            });
+                            $loadingAnime.addClass('active');
+                        }
+                        $form.submit();
+                    });
+
+            });
+    }
+    createModalOnForm();
+
+
 
     window.devbug = () => {
         let hiddenInput = $('input[type=hidden][name=devbug]');

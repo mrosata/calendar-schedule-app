@@ -70,19 +70,19 @@ class Scheduler_Advanced {
         $this->ATM = new Availability_Time_Manager();
 
 
-        if (count(Globals::$ignored_meetings)) {
+        if (Config::$activate_push_date && count(Globals::$ignored_meetings)) {
 
             // These meetings have already happened. But they are not pinned (fixed) so they will
             // need to be rescheduled to the calendar.
-            Config::add_output("<h3><strong>Meetings already happened</strong></h3>");
-            $this->schedule_meetings_from_array(Globals::$ignored_meetings, false);
+            Config::add_output("<hr><h3><strong>Meetings already happened</strong></h3>");
+            $this->list_meetings_that_already_have_been_scheduled(Globals::$ignored_meetings);
         }
-        if (count(Globals::$fixed_meetings)) {
+        if (Config::$honor_pinned_meetings && count(Globals::$fixed_meetings)) {
             // These meetings don't need to be sent to the calendar. They need to be taken into account
             // when scheduling meetings, but they don't need to be stored to the calendar. We don't want
             // to overwrite them because then they wouldn't be fixed (pinned).
-            Config::add_output("<h3><strong>Fixed Meetings</strong></h3>");
-            $this->schedule_meetings_from_array(Globals::$fixed_meetings, false);
+            Config::add_output("<hr><h3><strong>Fixed Meetings</strong></h3>");
+            $this->list_meetings_that_already_have_been_scheduled(Globals::$fixed_meetings);
         }
 
 
@@ -153,7 +153,6 @@ class Scheduler_Advanced {
                     $everyone_at_meetings_now[] = $inv->email;
                     $index = array_search($project->id, $projects_req);
                     unset($inv->projects[ $index ]);
-                    Config::add_output( "<br>" );
                 }
             }
         }
@@ -182,7 +181,7 @@ class Scheduler_Advanced {
         return $availability;
     }
 
-    public function schedule_meetings_from_array( $meetings, $send_to_calendar = true) {
+    public function list_meetings_that_already_have_been_scheduled( $meetings) {
 
 
         if (!is_array($meetings)) {
@@ -191,7 +190,7 @@ class Scheduler_Advanced {
 
         foreach($meetings as $meeting) {
             // Schedule the meeting (this function is called regardless if meeting shall be stored to calendar or not).
-            $this->schedule_meeting((int)$meeting->investor, (int)$meeting->project, $meeting->start, $meeting->end, $send_to_calendar);
+            $this->schedule_meeting((int)$meeting->investor, (int)$meeting->project, $meeting->start, $meeting->end, false);
 
             if (isset($this->investors[(int)$meeting->investor])) {
                 $object = $this->investors[(int)$meeting->investor];
