@@ -16,6 +16,9 @@ define( 'DB_USERNAME', 'U7fdeea503731519' );
 define( 'DB_PASSWORD', 'a234fc65df7bd8fa');
 define( 'DB_DATABASE', 'copro_co_il');
 
+define( 'DEV_SERVER', (($_SERVER['SERVER_ADDR'] == '127.0.0.1' || $_SERVER['SERVER_NAME'])) );
+
+
 
 class DB {
 
@@ -35,9 +38,10 @@ class DB {
         $host = self::$host;
         $db_name = self::$db_name;
         try {
-            $conn = new \PDO("mysql:host={$host};dbname={$db_name}", DB_USERNAME, DB_PASSWORD, array(\PDO::MYSQL_ATTR_INIT_COMMAND =>"SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci' "));
+            $conn = new \PDO("mysql:host={$host};port=3306;dbname={$db_name}", DB_USERNAME, DB_PASSWORD, array(\PDO::MYSQL_ATTR_INIT_COMMAND =>"SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci' "));
             $conn->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
             self::$conn = $conn;
+
         } catch(\PDOException $e) {
             echo 'ERROR: ' . $e->getMessage();
         }

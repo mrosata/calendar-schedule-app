@@ -40,8 +40,12 @@ jQuery(function ($) {
 
 
 
+    var $inputEventId = $('#dates-event-id');
     var $getDatesBtn = $('#get-dates-by-event');
-    $getDatesBtn.on('click', (evt) => {
+
+
+    function lookupEventDatesAndBreakMask (evt) {
+        evt.preventDefault();
         let eventID = + ($('#dates-event-id').val());
         $.ajax({
             url: 'ajax.php',
@@ -96,7 +100,7 @@ jQuery(function ($) {
                                         .datetimepicker('options', timepickerOpts);
 
                                 }
-                                
+
                             });
 
                             let numDatepickers = data.dates.length + 1;
@@ -121,15 +125,21 @@ jQuery(function ($) {
                             }
                         }
                     } else {
-                        console.error('fail', resp.responseJSON);
+                        //console.error('fail', resp.responseJSON);
                     }
                 }
             }
         });
+    }
 
-        evt.preventDefault();
-    });
+    
+    $getDatesBtn.on('click', lookupEventDatesAndBreakMask);
 
+    if ($getDatesBtn.length && $inputEventId.length) {
+        // NEW PLAN, HIDE THE BUTTON TO LOOKUP BREAKS AND DATES. We will do it automagically!
+        $getDatesBtn.hide();
+        $inputEventId.on('change', lookupEventDatesAndBreakMask);
+    }
 
 
 

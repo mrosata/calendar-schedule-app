@@ -4,12 +4,13 @@
 # TEAM
 
     <name> -- <role> -- <twitter>
-
+    Michael Rosata -- Lead Developer -- @onethingsimple
+    Shai Dayan     -- Boss Man, Developer -- #Tq-tag
 # THANKS
 
     <name>
 
 # TECHNOLOGY COLOPHON
 
-    CSS3, HTML5
+    CSS3, HTML5, Babel, ES2015, PHP, Tq-tag
     Apache Server Configs, jQuery, Modernizr, Normalize.css

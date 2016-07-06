@@ -11,9 +11,24 @@ function show_template($path_from_root) {
 }
 
 
+function if_set($array, $index, $default=null) {
+    return isset($array[$index]) && !empty($array[$index]) ? $array[$index] : $default;
+}
+
 function be_array(&$item = '') {
     return is_array($item) ? $item : array($item);
 }
+
+function array_by_key($objects, $key) {
+    $rv = array();
+    if (is_array($objects)) {
+        foreach ($objects as $object) {
+            $rv[$object->$key] = $objects;
+        }
+    }
+    return $rv;
+}
+
 
 function print_pre($res, $return_only = 0) {
     $rv = "<pre>";
@@ -25,24 +40,22 @@ function print_pre($res, $return_only = 0) {
     return $rv;
 }
 
-class Utils {
-
-    static function get_index_from($container, $index) {
-        return ( isset( $container[ $index ] ) && ! empty( $container[ $index ] ) ) ? $container[ $index ] : null;
-    }
+function get_index_from($container, $index) {
+    return ( isset( $container[ $index ] ) && ! empty( $container[ $index ] ) ) ? $container[ $index ] : null;
 }
+
 
 function get($index) {
-    return Utils::get_index_from( $_GET, $index );
+    return get_index_from( $_GET, $index );
 }
 function session($index) {
-    return Utils::get_index_from( $_SESSION, $index );
+    return get_index_from( $_SESSION, $index );
 }
 function post($index) {
-    return Utils::get_index_from( $_POST, $index );
+    return get_index_from( $_POST, $index );
 }
 function server($index) {
-    return Utils::get_index_from( $_SERVER, $index );
+    return get_index_from( $_SERVER, $index );
 }
 
 /**

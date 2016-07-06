@@ -38,8 +38,11 @@ jQuery(function ($) {
     $('[data-toggle="tooltip"]').tooltip();
     $('[data-toggle="popover"]').popover();
 
+    var $inputEventId = $('#dates-event-id');
     var $getDatesBtn = $('#get-dates-by-event');
-    $getDatesBtn.on('click', function (evt) {
+
+    function lookupEventDatesAndBreakMask(evt) {
+        evt.preventDefault();
         var eventID = +$('#dates-event-id').val();
         $.ajax({
             url: 'ajax.php',
@@ -105,14 +108,20 @@ jQuery(function ($) {
                             }
                         })();
                     } else {
-                        console.error('fail', resp.responseJSON);
+                        //console.error('fail', resp.responseJSON);
                     }
                 }
             }
         });
+    }
 
-        evt.preventDefault();
-    });
+    $getDatesBtn.on('click', lookupEventDatesAndBreakMask);
+
+    if ($getDatesBtn.length && $inputEventId.length) {
+        // NEW PLAN, HIDE THE BUTTON TO LOOKUP BREAKS AND DATES. We will do it automagically!
+        $getDatesBtn.hide();
+        $inputEventId.on('change', lookupEventDatesAndBreakMask);
+    }
 
     function setupAllTimePickers() {
         $('.break-timepicker').timepicker(timepickerSettings).on('changeTime.timepicker', function () {

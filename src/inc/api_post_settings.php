@@ -9,6 +9,13 @@ $possible_querys = array(
     'project_data', 'cross_ref_investors', 'insert_project', 'investors_api', 'projects_api'
 );
 
+require_once 'utils.php';
+
+
+define('API_EXPORT', \Util\post('export') ? true : false);
+define('API_IMPORT', \Util\post('import') ? true : false);
+
+
 // IS THIS CALL SIMPLY AN API UPDATE CALL?
 if (\Util\post('queryrun')) {
     $query_name = \Util\post( 'queryrun');
@@ -23,7 +30,7 @@ if (\Util\post('queryrun')) {
 
         require_once 'utils.php';
         require_once 'connection.php';
-        require_once 'Project_Database_Interface-class.php';
+        require_once 'Improved_Project_Database_Interface-class.php';
         $pdo = \Connection\get_connection();
         $db = new \copro\Investor_Project_PHP_Handler( $pdo );
 
@@ -50,7 +57,7 @@ if (\Util\post('update')) {
 
         require_once 'utils.php';
         require_once 'connection.php';
-        require_once 'Project_Database_Interface-class.php';
+        require_once 'Improved_Project_Database_Interface-class.php';
         $pdo = \Connection\get_connection();
         $db = new \copro\Investor_Project_PHP_Handler( $pdo );
 
@@ -60,12 +67,13 @@ if (\Util\post('update')) {
             'item_id' => \Util\post('item_id'),
             'event_id' => \Util\post('event_id'),
             'meeting_end' => \Util\post('end'),
-            'meeting_start' => \Util\post('start')
+            'meeting_start' => \Util\post('start'),
+            'locked' => (!is_null(\Util\post('locked')) ? (int)\Util\post('locked') : 1),
         );
 
         $ret['success'] = !!$db->update_meeting( $params ) ? 1 : 0;
 
-        $ret['wkka'] = json_encode($params);
+        
         $ret['message'] = "made update request.";
     } else {
         $ret['message'] = 'missing url params';

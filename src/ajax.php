@@ -13,7 +13,7 @@ mb_internal_encoding("UTF-8");
 define('ROOT_DIR', __DIR__);
 session_start();
 ob_start();
-
+header('Access-Control-Allow-Origin: *');
 require_once 'inc/utils.php';
 
 $event_id = \Util\post('event-id');
